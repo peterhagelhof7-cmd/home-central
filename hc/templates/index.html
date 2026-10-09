@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}home-central{% endblock %}
+{% block body %}
+<div class="top">
+  <h1>home-central</h1>
+  <nav><a class="navbtn" href="/settings">&#9881; Einstellungen</a><a class="navbtn" href="/logout">Abmelden</a></nav>
+</div>
+
+<div class="card">
+  <h2>Infoscreen</h2>
+  <div class="sub">{% if dev_online %}<span class="dot ok"></span>online{% else %}<span class="dot bad"></span>offline{% endif %} &middot; letzter Abruf {{ dev_seen }}</div>
+  {% if dev.status %}<pre>{{ dev.status }}</pre>{% else %}<div class="st">Noch keine Statusmeldung vom Infoscreen.</div>{% endif %}
+  {% if dev.dht22 and dev.dht22.valid %}<div class="st">Innen: {{ '%.1f'|format(dev.dht22.temp_c) }} &deg;C, {{ '%.0f'|format(dev.dht22.hum_pct) }} % rF</div>{% endif %}
+  <form method="post" action="/device/reboot"><button class="grey" type="submit">Infoscreen neu starten</button></form>
+</div>
+
+<div class="card">
+  <h2>Datenquellen</h2><div class="sub">Abrufe f&uuml;r den Infoscreen</div>
+  <table>
+    <tr><th>Quelle</th><th>Letzter Erfolg</th><th></th></tr>
+    {% for s in sources %}
+    <tr>
+      <td><span class="dot {{ 'bad' if s.error else ('ok' if s.ok_ts else 'idle') }}"></span>{{ s.title }}
+        {% if s.error %}<div class="err">{{ s.error }}</div>{% endif %}</td>
+      <td>{{ s.ago }}</td>
+      <td><form method="post" action="/settings/refresh/{{ s.name }}" style="margin:0">
+        <button class="small" style="background:#28345c" title="jetzt abrufen">&#8635;</button></form></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2>Message Board</h2>
+  <div class="sub">{% if tg_ok %}Telegram-Gruppe{% else %}Telegram nicht konfiguriert{% endif %}</div>
+  <div id="chat"></div>
+  <form class="row" style="margin-top:12px" onsubmit="return send(event)">
+    <input id="msg" maxlength="400" placeholder="Nachricht an die Gruppe ..." autocomplete="off">
+    <button type="submit">Senden</button>
+  </form>
+</div>
+<div class="st" style="text-align:center">home-central {{ version }}</div>
+
+<script>
+async function load(){try{let r=await fetch('/tg/history.json');if(!r.ok)return;let a=await r.json();
+let c=document.getElementById('chat');let atb=c.scrollTop+c.clientHeight>=c.scrollHeight-20;
+c.innerHTML='';for(const m of a){let d=document.createElement('div');d.className='m';
+let b=document.createElement('b');b.textContent=m.from+': ';d.appendChild(b);
+d.appendChild(document.createTextNode(m.text));c.appendChild(d);}
+if(atb)c.scrollTop=c.scrollHeight;}catch(e){}}
+async function send(e){e.preventDefault();let i=document.getElementById('msg');let t=i.value.trim();if(!t)return false;
+await fetch('/tg/send',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:'text='+encodeURIComponent(t)});i.value='';setTimeout(load,600);return false;}
+load();setInterval(load,5000);
+</script>
+{% endblock %}

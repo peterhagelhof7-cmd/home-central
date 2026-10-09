@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}home-central Einstellungen{% endblock %}
+{% macro card(id, title, sub) %}
+<div class="card" id="{{ id }}"><h2>{{ title }}</h2><div class="sub">{{ sub }}</div>
+<form method="post" action="/settings/save"><input type="hidden" name="_card" value="{{ id }}">
+{{ caller() }}
+</form></div>
+{% endmacro %}
+{% block body %}
+<div class="top">
+  <h1>Einstellungen</h1>
+  <nav><a class="navbtn" href="/">&larr; &Uuml;bersicht</a><a class="navbtn" href="/logout">Abmelden</a></nav>
+</div>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+
+{% call card("anzeige", "Anzeige", "Wird an den Infoscreen übertragen") %}
+  <label>Helligkeit: <span id="bv">{{ c.brightness }}</span> %</label>
+  <input type="range" name="brightness" min="5" max="100" value="{{ c.brightness }}" oninput="bv.textContent=this.value">
+  <label>Untergrenze (Duty %, Panel-Kalibrierung)</label>
+  <input type="number" name="bl_floor" min="0" max="95" value="{{ c.bl_floor }}">
+  <label class="cb"><input type="checkbox" name="rot180" value="1" {{ 'checked' if c.rot180 == '1' }}> Um 180&deg; drehen</label>
+  <label>Angezeigte Slides</label>
+  {% for sid, title in slides %}
+  <label class="cb"><input type="checkbox" name="sl_{{ sid }}" value="1" {{ 'checked' if c['sl_' ~ sid] == '1' }}> {{ title }}</label>
+  {% endfor %}
+  <input type="hidden" name="_checkboxes" value="rot180,{% for sid, _ in slides %}sl_{{ sid }}{{ ',' if not loop.last }}{% endfor %}">
+  <label>Wechsel alle (Sekunden)</label>
+  <input type="number" name="slide_sec" min="3" max="120" value="{{ c.slide_sec }}">
+  <button type="submit">Speichern</button>
+  <div class="st">Drehung und Slide-Auswahl l&ouml;sen am Infoscreen einen Neustart aus, Helligkeit wirkt sofort.</div>
+{% endcall %}
+
+<div class="card" id="termine"><h2>Termine</h2><div class="sub">erscheinen im Kalender und im Bot</div>
+  {% for t in termine %}
+  <div class="trow"><span>{{ t.d }} {{ t.t }} {{ t.ti }}</span>
+    <form method="post" action="/settings/termin/del"><input type="hidden" name="i" value="{{ loop.index0 }}">
+    <button class="small" type="submit">x</button></form></div>
+  {% else %}<div class="st" style="margin-top:0">keine Termine</div>{% endfor %}
+  <form method="post" action="/settings/termin/add" style="margin-top:12px">
+    <label>Datum</label><input type="date" name="date" required>
+    <label>Uhrzeit (optional)</label><input type="time" name="time">
+    <label>Titel</label><input type="text" name="title" maxlength="39" required>
+    <button type="submit">Termin hinzuf&uuml;gen</button>
+  </form>
+</div>
+
+{% call card("wetter", "Wetter", "OpenWeatherMap") %}
+  <label>API-Key</label>
+  <input type="text" name="owm_key" autocomplete="off" placeholder="{{ 'gesetzt – zum Ändern neuen Key eingeben' if has.owm_key else 'noch nicht gesetzt' }}">
+  <label>Ort (leer = Standort unten)</label>
+  <input type="text" name="owm_loc" value="{{ c.owm_loc }}" placeholder="z.B. Würzburg,DE">
+  <button type="submit">Speichern</button>
+{% endcall %}
+
+{% call card("standort", "Standort & Flugzeuge", "für Wetter, DWD-Warnungen, Flugzeuge, Satelliten") %}
+  <label>Breite (lat)</label><input type="text" name="planes_lat" value="{{ c.planes_lat }}" placeholder="z.B. 49.79">
+  <label>L&auml;nge (lon)</label><input type="text" name="planes_lon" value="{{ c.planes_lon }}" placeholder="z.B. 9.95">
+  <label>Flugzeug-Radius (Seemeilen, max. 250)</label><input type="text" name="planes_radius" value="{{ c.planes_radius }}">
+  <button type="submit">Speichern</button>
+  <div class="st">Flugzeuge: adsb.lol, Routen von adsbdb.com (ohne Key).</div>
+{% endcall %}
+
+{% call card("nacht", "Nachtobjekte", "Satelliten (N2YO) + Asteroiden (NASA)") %}
+  <label>N2YO API-Key</label>
+  <input type="text" name="n2yo_key" autocomplete="off" placeholder="{{ 'gesetzt' if has.n2yo_key else 'nicht gesetzt' }}">
+  <label>NASA API-Key</label>
+  <input type="text" name="nasa_key" autocomplete="off" placeholder="{{ 'eigener Key gesetzt' if has.nasa_key else 'DEMO_KEY aktiv (Limit ~50/Tag)' }}">
+  <label>Beobachterh&ouml;he (m)</label><input type="text" name="space_alt" value="{{ c.space_alt }}">
+  <button type="submit">Speichern</button>
+{% endcall %}
+
+{% call card("warnungen", "Warnungen", "Katastrophenschutz (BBK/NINA)") %}
+  <label>Warnregion (Amtlicher Regionalschl&uuml;ssel, 12-stellig)</label>
+  <input type="text" name="nina_ars" value="{{ c.nina_ars }}" placeholder="ARS">
+  <button type="submit">Speichern</button>
+  <div class="st">DWD-Wetterwarnungen kommen zus&auml;tzlich von Bright Sky f&uuml;r den Standort.</div>
+{% endcall %}
+
+<div class="card" id="muell"><h2>M&uuml;ll</h2><div class="sub">Abfuhrtermine &ndash; Datenquelle</div>
+<form method="post" action="/settings/save" onsubmit="return mSub()"><input type="hidden" name="_card" value="muell">
+  <label>Datenquelle</label>
+  <select name="muell_src" id="msrc" onchange="mSrc()">
+    <option value="mymuell" {{ 'selected' if c.muell_src != 'awido' }}>MyM&uuml;ll (jumomind)</option>
+    <option value="awido" {{ 'selected' if c.muell_src == 'awido' }}>Abfall-App (AWIDO / cubefour)</option>
+  </select>
+  <div id="mmy">
+    <label>Ortsteil-ID (MyM&uuml;ll)</label>
+    <input type="text" name="muell_id" value="{{ c.muell_id }}" placeholder="Ortsteil-ID">
+    <div class="st">Ortsteil-ID aus der MyM&uuml;ll-App.
+      <br>
+      </div>
+  </div>
+  <div id="maw">
+    <div class="st">Aktuell: {{ c.muell_aw_lbl }}</div>
+    <label>Mandant (Landkreis / Stadt)</label>
+    <select id="mcl" onchange="mCl(0)">
+      {% set known = namespace(v=false) %}
+      {% for cid, title in catalog %}
+      <option value="{{ cid }}" {% if cid == c.muell_aw_cl %}selected{% set known.v = true %}{% endif %}>{{ title }}</option>
+      {% endfor %}
+      <option value="_" {{ 'selected' if not known.v }}>Anderer Mandant (K&uuml;rzel eingeben) &hellip;</option>
+    </select>
+    <input type="text" id="mclx" value="{{ '' if known.v else c.muell_aw_cl }}" placeholder="K&uuml;rzel, z.B. lra-ab"
+      onchange="mCl(0)" {{ 'style=display:none' if known.v }}>
+    <label>Gemeinde</label><select id="mpl" onchange="mPl(0)"></select>
+    <label>Ortsteil / Stra&szlig;e</label><select id="mst" onchange="mSt()"></select>
+    <div id="mhw" style="display:none"><label>Hausnummer</label><select id="mhn" onchange="mHn()"></select></div>
+    <label>AWIDO-ID (wird durch die Auswahl gesetzt)</label>
+    <input type="text" name="muell_aw_id" id="moid" value="{{ c.muell_aw_id }}">
+    <input type="hidden" name="muell_aw_cl" id="mclv" value="{{ c.muell_aw_cl }}">
+    <input type="hidden" name="muell_aw_ort" id="mort" value="{{ c.muell_aw_ort }}">
+    <input type="hidden" name="muell_aw_lbl" id="mlbl" value="{{ c.muell_aw_lbl }}">
+    <div class="st" id="mmsg"></div>
+  </div>
+  <button type="submit">Speichern</button>
+</form></div>
+
+{% call card("kino", "Kino", "Programm für den Bot (kino.de)") %}
+  <label>Kino-ID</label><input type="text" name="kino_id" value="{{ c.kino_id }}">
+  <button type="submit">Speichern</button>
+  <div class="st">Kino-ID aus dem kino.de-Backend.</div>
+{% endcall %}
+
+{% call card("feiertage", "Feiertage", "Gesetzliche Feiertage im Terminplan") %}
+  <label>Bundesland</label>
+  <select name="feiertage_bl">
+    {% for code, name in bl.items() %}<option value="{{ code }}" {{ 'selected' if code == c.feiertage_bl }}>{{ name }}</option>{% endfor %}
+  </select>
+  <button type="submit">Speichern</button>
+{% endcall %}
+
+{% call card("fritzbox", "Fritzbox", "Adresse (leer = Gateway " ~ gw ~ ")") %}
+  <input type="text" name="fb_host" value="{{ c.fb_host }}" placeholder="z.B. 192.168.178.1 oder fritz.box">
+  <button type="submit">Speichern</button>
+  <div class="st">Nutzt UPnP/IGD (Port 49000). In der Fritzbox muss &bdquo;Statusinformationen &uuml;ber UPnP &uuml;bertragen&ldquo; aktiv sein.</div>
+{% endcall %}
+
+{% call card("telegram", "Telegram", "Message Board / Bot") %}
+  <label>Bot-Token</label>
+  <input type="text" name="tg_token" autocomplete="off" placeholder="{{ 'gesetzt – zum Ändern neuen Token eingeben' if has.tg_token else 'noch nicht gesetzt' }}">
+  <label>Gruppen-Chat-ID</label>
+  <input type="text" name="tg_chat" value="{{ c.tg_chat }}" placeholder="z.B. -1001234567890">
+  <button type="submit">Speichern</button>
+  <div class="st">Den Bot nur an EINER Stelle betreiben: Sobald home-central den Token hat, muss er im Infoscreen leer sein
+    (sonst holen sich beide die Nachrichten weg). Im Client-Modus l&auml;uft im Infoscreen kein Bot.</div>
+{% endcall %}
+
+<div class="card" id="anbindung"><h2>Infoscreen-Anbindung</h2><div class="sub">im Infoscreen unter &bdquo;Datenquelle&ldquo; eintragen</div>
+  <label>Server</label><code>http://{{ host }}</code>
+  <label>API-Token</label><code>{{ api_token }}</code>
+  <label>Zeitserver (NTP)</label><code>{{ host }}</code>
+  <form method="post" action="/settings/token"><button class="grey" type="submit">Neuen API-Token erzeugen</button></form>
+</div>
+
+<div class="card" id="system"><h2>System</h2><div class="sub">Einstellungen, Passwort, Log</div>
+  <form method="post" action="/settings/import" enctype="multipart/form-data">
+    <label>Einstellungen aus dem Infoscreen importieren (.json)</label>
+    <input type="file" name="file" accept=".json,application/json" required>
+    <button type="submit">Importieren</button>
+  </form>
+  <div class="st">Export im Infoscreen: Einstellungen &rarr; System &rarr; &bdquo;Einstellungen herunterladen&ldquo;.
+    WLAN-Zugang und Ger&auml;tename werden nicht &uuml;bernommen.</div>
+  <a class="btn" href="/settings/export">Einstellungen herunterladen</a>
+  <a class="btn grey" href="/log/download">Log herunterladen</a>
+  <form method="post" action="/settings/password" style="margin-top:16px">
+    <label>Passwort &auml;ndern</label>
+    <input type="password" name="old" placeholder="altes Passwort" autocomplete="current-password">
+    <input type="password" name="new" placeholder="neues Passwort (min. 8 Zeichen)" autocomplete="new-password" style="margin-top:8px">
+    <input type="password" name="new2" placeholder="neues Passwort wiederholen" autocomplete="new-password" style="margin-top:8px">
+    <button class="grey" type="submit">Passwort &auml;ndern</button>
+  </form>
+</div>
+
+<script>
+var mI=0;function g(i){return document.getElementById(i)}
+function mSrc(){var a=g('msrc').value=='awido';g('mmy').style.display=a?'none':'';
+g('maw').style.display=a?'':'none';if(a&&!mI){mI=1;mCl(1)}}
+function mClient(){var v=g('mcl').value;g('mclx').style.display=v=='_'?'':'none';
+return v=='_'?g('mclx').value.trim().toLowerCase():v}
+function mFill(s,l,p){s.innerHTML='';var o=document.createElement('option');o.value='';o.textContent=p;s.appendChild(o);
+l.forEach(function(e){var o=document.createElement('option');o.value=e.key;o.textContent=e.value||'(alle)';s.appendChild(o)})}
+function mGet(st,id,cb){var c=mClient();if(!c)return;g('mmsg').textContent='Lade …';
+fetch('/api/awido?step='+st+'&client='+encodeURIComponent(c)+(id?'&id='+id:''))
+.then(function(r){if(!r.ok)throw 0;return r.json()})
+.then(function(l){g('mmsg').textContent='';cb(l)})
+.catch(function(){g('mmsg').textContent='Abruf fehlgeschlagen – Mandant/Verbindung prüfen.'})}
+function mTxt(s){return s.selectedIndex>0?s.options[s.selectedIndex].textContent:''}
+function mUpd(){var m=g('mcl'),t=m.value=='_'?mClient():mTxt(m),p=mTxt(g('mpl')),s=mTxt(g('mst')),h=mTxt(g('mhn'));
+g('mclv').value=mClient();g('mort').value=p;
+g('mlbl').value=[t,p,s].filter(function(x){return x}).join(' / ')+(g('mhw').style.display==''&&h?' '+h:'')}
+function mCl(i){['mpl','mst','mhn'].forEach(function(x){g(x).innerHTML=''});g('mhw').style.display='none';
+if(!i){g('mort').value='';g('moid').value='';mUpd()}
+mGet('places',0,function(l){mFill(g('mpl'),l,'– Gemeinde wählen –');
+if(i){var o=[].find.call(g('mpl').options,function(o){return o.textContent==g('mort').value});if(o){o.selected=true;mPl(1)}}})}
+function mPl(i){g('mst').innerHTML='';g('mhn').innerHTML='';g('mhw').style.display='none';var k=g('mpl').value;if(!k)return;
+mGet('streets',k,function(l){mFill(g('mst'),l,'– Ortsteil/Straße wählen –');
+if(i){var o=[].find.call(g('mst').options,function(o){return o.value&&o.value==g('moid').value});if(o)o.selected=true}
+else if(l.length==1){g('mst').selectedIndex=1;mSt()}})}
+function mSt(){var k=g('mst').value;g('mhn').innerHTML='';g('mhw').style.display='none';if(!k)return;
+g('moid').value=k;mUpd();
+mGet('addons',k,function(l){if(l.length>1||(l.length==1&&l[0].value)){mFill(g('mhn'),l,'– Hausnummer wählen –');
+g('mhw').style.display='';mUpd()}})}
+function mHn(){var k=g('mhn').value;g('moid').value=k||g('mst').value;mUpd()}
+function mSub(){if(g('msrc').value=='awido'){g('mclv').value=mClient();
+if(!g('mclv').value||!g('moid').value){alert('Bitte Mandant und Ort wählen.');return false}}return true}
+g('mmy').style.display=g('msrc').value=='awido'?'none':'';g('maw').style.display=g('msrc').value=='awido'?'':'none';
+if(g('msrc').value=='awido')mSrc();
+</script>
+{% endblock %}

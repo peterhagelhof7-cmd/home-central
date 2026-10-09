@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}home-central Anmeldung{% endblock %}
+{% block body %}
+<div class="card" style="max-width:380px;margin:10vh auto 0">
+  <h2>home-central</h2><div class="sub">Datenlieferant esp-infoscreen</div>
+  <form method="post" action="/login">
+    <label>Passwort</label>
+    <input type="password" name="password" autofocus autocomplete="current-password">
+    <button type="submit">Anmelden</button>
+  </form>
+  {% if error %}<div class="st" style="color:#f0a0a0">{{ error }}</div>{% endif %}
+</div>
+{% endblock %}

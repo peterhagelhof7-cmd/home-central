@@ -1,0 +1,26 @@
+[Unit]
+Description=home-central - Datenlieferant fuer den esp-infoscreen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=home-central
+Group=home-central
+WorkingDirectory=/opt/home-central
+Environment=HC_DATA_DIR=/var/lib/home-central
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m hc.main --port 80
+Restart=always
+RestartSec=5
+# Port 80 ohne root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/home-central
+
+[Install]
+WantedBy=multi-user.target

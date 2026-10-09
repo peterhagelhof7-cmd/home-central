@@ -1,0 +1,41 @@
+/* Stil wie das Webinterface des esp-infoscreen (dunkelblau, Karten). */
+:root { --bg:#101830; --card:#1b2440; --field:#0d1428; --line:#33406a; --acc:#3b6ef0;
+        --link:#8ab4f8; --muted:#9aa4c0; --nav:#28345c; --ok:#3fb27f; --warn:#e0a030; --bad:#d9534f; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: var(--bg); color: #eee; margin: 0; padding: 16px; }
+.wrap { max-width: 640px; margin: 0 auto; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.top h1 { font-size: 20px; margin: 0; }
+.top nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.navbtn { padding: 8px 14px; border-radius: 8px; background: var(--nav); color: var(--link); text-decoration: none; font-size: 14px; }
+.card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.card h2 { font-size: 20px; margin: 0 0 4px; }
+.sub { color: var(--link); font-size: 13px; margin-bottom: 12px; }
+label { display: block; margin: 12px 0 4px; font-size: 14px; }
+label.cb { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+label.cb input { width: auto; }
+select, input, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--field); color: #eee; font-size: 15px; }
+input[type=range] { padding: 0; }
+button, .btn { display: block; margin-top: 16px; width: 100%; padding: 12px; border: 0; border-radius: 8px;
+  background: var(--acc); color: #fff; font-size: 15px; text-align: center; text-decoration: none; cursor: pointer; }
+button.grey, .btn.grey { background: #5a6478; }
+button.red { background: #a33a3a; }
+button.small { display: inline-block; width: auto; margin: 0; padding: 4px 10px; background: #8a3a3a; }
+.st { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.45; }
+.msg { background: #22406a; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+td, th { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: normal; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.idle { background: #667; }
+.err { color: #f0a0a0; font-size: 12px; }
+#chat { height: 50vh; overflow-y: auto; background: var(--field); border-radius: 8px; padding: 10px; font-size: 15px; line-height: 1.5; }
+#chat .m { margin: 4px 0; } #chat b { color: var(--link); }
+.row { display: flex; gap: 8px; align-items: center; }
+.row input { flex: 1; } .row button { width: auto; margin: 0; padding: 10px 18px; }
+.trow { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; gap: 8px; }
+.trow form { margin: 0; }
+pre { white-space: pre-wrap; margin: 0; font-size: 13px; color: #b0b8d0; }
+code { background: var(--field); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+details summary { cursor: pointer; color: var(--link); font-size: 14px; }
