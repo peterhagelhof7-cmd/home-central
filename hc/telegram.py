@@ -10,7 +10,7 @@ import time
 from collections import deque
 from datetime import date
 
-from . import config, device, net, poller
+from . import config, device, net, ntfy, poller
 from .sources import extra, kalender, simple
 from .tz import now, today_iso
 
@@ -27,8 +27,10 @@ HW_HITZE_C, HW_NACHTFROST_C, HW_REGEN_AB_MM = 30, 0, 1.0
 
 history: deque = deque(maxlen=TG_MAX_MSGS)
 version = 0
-_st = {"botname": "", "offset": 0, "primed": False, "greeted": False, "last_warn": "", "last_nina": "",
-       "boe_warned": False, "summary_day": None, "kino_day": None, "dev_online": None}
+_st = {"botname": "", "offset": 0, "primed": False, "greeted": False,
+       "summary_day": None, "kino_day": None, "dev_online": None}
+# Zuletzt gemeldete Warnung je Kanal ("tg"/"ntfy") und Art ("dwd"/"nina"/"boe")
+_warned: dict[tuple[str, str], str] = {}
 
 
 def configured() -> bool:
@@ -398,12 +400,21 @@ async def _process(updates: list, execute: bool):
             continue
         if str((m.get("chat") or {}).get("id")) != chat:
             continue
-        _hist_add((m.get("from") or {}).get("first_name", "?"), m["text"])
+        sender = (m.get("from") or {}).get("first_name", "?")
+        _hist_add(sender, m["text"])
+        if execute and not _is_command(m["text"]):
+            await ntfy.group_message(sender, m["text"])
         if execute:
             try:
                 await handle_command(m["text"])
             except Exception:
                 log.exception("Kommando fehlgeschlagen")
+
+
+def _is_command(text: str) -> bool:
+    """Bot-Befehle (@bot ... oder /...) nicht an ntfy weiterleiten."""
+    bot = _st["botname"]
+    return text.lstrip().startswith("/") or bool(bot and f"@{bot}" in text.lower())
 
 
 async def _fetch_botname():
@@ -437,23 +448,31 @@ async def bot_loop():
             await asyncio.sleep(10)
 
 
+async def _warn(kind: str, key: str, text: str):
+    """Warnung je Kanal genau einmal melden; bei Fehlschlag spaeter erneut."""
+    if configured() and _warned.get(("tg", kind)) != key:
+        if await send(text):
+            _warned[("tg", kind)] = key
+    if ntfy.enabled() and config.get("ntfy_warn") == "1" and _warned.get(("ntfy", kind)) != key:
+        if await ntfy.warning(text):
+            _warned[("ntfy", kind)] = key
+
+
 async def _check_pushes():
     d = poller.data("dwd") or {}
-    if d.get("valid") and d.get("count") and d.get("headline") and d["headline"] != _st["last_warn"]:
-        if await send(f"⚠ Wetterwarnung: {d['headline']}"):
-            _st["last_warn"] = d["headline"]
+    if d.get("valid") and d.get("count") and d.get("headline"):
+        await _warn("dwd", d["headline"], f"⚠ Wetterwarnung: {d['headline']}")
     n = poller.data("nina") or {}
-    if n.get("valid") and n.get("count") and n.get("headline") and n["headline"] != _st["last_nina"]:
-        if await send(f"\U0001F6A8 Warnung ({n['provider'] or 'BBK'}): {n['headline']}"):
-            _st["last_nina"] = n["headline"]
+    if n.get("valid") and n.get("count") and n.get("headline"):
+        await _warn("nina", n["headline"], f"🚨 Warnung ({n['provider'] or 'BBK'}): {n['headline']}")
     s = poller.data("spessart")
     if s and s.get("valid"):
         g = simple.gust_kmh(s)
-        if g >= BOE_WARN_KMH and not _st["boe_warned"]:
-            if await send(f"\U0001F4A8 Windböen: {s['gust'] or '?'} km/h (spessartwetter)"):
-                _st["boe_warned"] = True
+        if g >= BOE_WARN_KMH:
+            await _warn("boe", "on", f"💨 Windböen: {s['gust'] or '?'} km/h (spessartwetter)")
         elif g < BOE_WARN_KMH - 5:
-            _st["boe_warned"] = False
+            _warned.pop(("tg", "boe"), None)
+            _warned.pop(("ntfy", "boe"), None)
 
 
 async def _check_schedules():
@@ -475,6 +494,11 @@ async def _check_schedules():
 async def push_loop():
     await asyncio.sleep(20)   # Quellen erst einmal laufen lassen
     while True:
+        if ntfy.enabled() and not configured():
+            try:
+                await _check_pushes()   # nur Warnungen an ntfy
+            except Exception:
+                log.exception("Push-Pruefung fehlgeschlagen")
         if configured():
             try:
                 if not _st["greeted"]:

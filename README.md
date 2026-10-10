@@ -12,6 +12,8 @@ Kopplung, Betrieb, Fehlersuche).
   Flugzeuge (adsb.lol + adsbdb), Satelliten/Asteroiden (N2YO + NASA), Feiertage, eigene Termine
 - **Telegram-Bot** komplett (Message Board, @-Kommandos, Warnungen, 6-Uhr-Bericht, Sonntags-Kino,
   Download-Wächter, Meldung wenn der Infoscreen offline geht)
+- **Weiterleitung an ntfy** (ntfy.sh): Gruppennachrichten und Warnungen für Familienmitglieder ohne
+  Telegram – reine Empfangs-App ohne Konto/Chat (Admin-Guide 3.4)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
   **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
 - **NTP-Server** (chrony) für das LAN, **mDNS-Ankündigung** (Avahi), damit der Infoscreen den Server

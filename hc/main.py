@@ -15,6 +15,7 @@ import secrets
 import time
 from collections import deque
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
@@ -22,11 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, device, net, poller, telegram
+from . import config, device, net, ntfy, poller, telegram
 from .sources import extra, kalender, muell, owm, simple
 from .tz import now
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -219,6 +220,10 @@ async def settings_save(req: Request):
             except ValueError:
                 continue
         vals[k] = v
+    if vals.get("ntfy_on") == "1" and not str(vals.get("ntfy_topic", config.get("ntfy_topic"))).strip():
+        vals["ntfy_topic"] = ntfy.new_topic()
+    if "ntfy_server" in vals and not vals["ntfy_server"].startswith(("https://", "http://")):
+        return RedirectResponse("/settings?msg=ntfy-Server+muss+mit+https%3A%2F%2F+beginnen#ntfy", status_code=303)
     if vals.get("muell_src") == "awido" and not muell.awido_valid(vals.get("muell_aw_cl", ""), vals.get("muell_aw_id", "")):
         return RedirectResponse("/settings?msg=Ung%C3%BCltiger+AWIDO-Mandant+oder+-ID", status_code=303)
     changed = [k for k, v in vals.items() if config.get(k) != v]
@@ -339,7 +344,24 @@ async def tg_send(req: Request, text: str = Form("")):
     if not text.strip():
         return PlainTextResponse("leer", status_code=400)
     ok = await telegram.send(text.strip()[:400])
+    if ok:
+        await ntfy.group_message("Message Board", text.strip()[:400])
     return PlainTextResponse("OK" if ok else "Telegram nicht konfiguriert oder Fehler", status_code=200 if ok else 503)
+
+
+@app.post("/settings/ntfy/{action}")
+async def ntfy_action(req: Request, action: str):
+    if (r := need_login(req)):
+        return r
+    if action == "newtopic":
+        config.set_many({"ntfy_topic": ntfy.new_topic()})
+        msg = "Neuer Kanal erzeugt – in der ntfy-App neu abonnieren"
+    elif action == "test":
+        ok = await ntfy.publish("Test von home-central ✅", title="home-central", tags="white_check_mark", force=True)
+        msg = "Testnachricht gesendet" if ok else "Senden fehlgeschlagen (Kanal/Server prüfen, Log)"
+    else:
+        msg = "?"
+    return RedirectResponse(f"/settings?msg={quote(msg)}#ntfy", status_code=303)
 
 
 @app.get("/api/awido")
@@ -430,7 +452,7 @@ def config_mirror() -> dict:
     sie im Geraet nie einen vorhandenen Key loeschen."""
     out = {}
     for k, v in config.all_values().items():
-        if k in MIRROR_SKIP or k.startswith("sl_"):
+        if k in MIRROR_SKIP or k.startswith(("sl_", "ntfy_")):
             continue
         if k == "termine":
             v = json.dumps(v, ensure_ascii=False, separators=(",", ":"))
@@ -482,6 +504,8 @@ async def api_tg_send(req: Request):
     if not text:
         return JSONResponse({"error": "leer"}, status_code=400)
     ok = await telegram.send(text)
+    if ok:
+        await ntfy.group_message("Infoscreen", text)
     return JSONResponse({"ok": ok}, status_code=200 if ok else 503)
 
 

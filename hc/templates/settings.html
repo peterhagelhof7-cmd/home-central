@@ -145,6 +145,29 @@
     (sonst holen sich beide die Nachrichten weg). Im Client-Modus l&auml;uft im Infoscreen kein Bot.</div>
 {% endcall %}
 
+<div class="card" id="ntfy"><h2>Weiterleitung an ntfy</h2><div class="sub">Für Familienmitglieder ohne Telegram (nur empfangen)</div>
+<form method="post" action="/settings/save"><input type="hidden" name="_card" value="ntfy">
+  <label class="cb"><input type="checkbox" name="ntfy_on" value="1" {{ 'checked' if c.ntfy_on == '1' }}> Weiterleitung aktiv</label>
+  <label class="cb"><input type="checkbox" name="ntfy_grp" value="1" {{ 'checked' if c.ntfy_grp == '1' }}> Gruppennachrichten (ohne Bot-Befehle)</label>
+  <label class="cb"><input type="checkbox" name="ntfy_warn" value="1" {{ 'checked' if c.ntfy_warn == '1' }}> Warnungen (DWD, NINA, Windböen)</label>
+  <input type="hidden" name="_checkboxes" value="ntfy_on,ntfy_grp,ntfy_warn">
+  <label>Server</label>
+  <input type="text" name="ntfy_server" value="{{ c.ntfy_server }}" placeholder="https://ntfy.sh">
+  <label>Kanal (wird beim Aktivieren zufällig erzeugt)</label>
+  <input type="text" name="ntfy_topic" value="{{ c.ntfy_topic }}" autocomplete="off" placeholder="leer = beim Speichern erzeugen">
+  <button type="submit">Speichern</button>
+  {% if c.ntfy_topic %}
+  <label>Zum Abonnieren in der ntfy-App</label>
+  <code>{{ (c.ntfy_server or 'https://ntfy.sh').rstrip('/') }}/{{ c.ntfy_topic }}</code>
+  {% endif %}
+  </form>
+  <form method="post" action="/settings/ntfy/test"><button class="grey" type="submit">Testnachricht senden</button></form>
+  <form method="post" action="/settings/ntfy/newtopic" onsubmit="return confirm('Neuen Kanal erzeugen? Alle Geräte müssen ihn neu abonnieren.')"><button class="grey" type="submit">Neuen Kanal erzeugen</button></form>
+  <div class="st">Wer den Kanalnamen kennt, kann mitlesen und auch selbst Nachrichten hineinschicken &ndash; Namen nur an die Familie geben.
+    In der ntfy-App: &bdquo;+&ldquo; &rarr; Kanalname eintragen (Server ntfy.sh). Damit alle Gruppennachrichten ankommen, muss beim
+    Bot der Datenschutz-Modus aus sein (@BotFather &rarr; /setprivacy &rarr; Disable, Bot danach einmal neu in die Gruppe holen).</div>
+</div>
+
 <div class="card" id="anbindung"><h2>Infoscreen-Anbindung</h2><div class="sub">im Infoscreen unter &bdquo;Datenquelle&ldquo; eintragen</div>
   <label>Server</label><code>http://{{ host }}</code>
   <label>API-Token</label><code>{{ api_token }}</code>
