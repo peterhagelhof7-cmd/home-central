@@ -496,7 +496,10 @@ async def device_pair(req: Request, action: str, mac: str = Form("")):
         device.deny(mac)
     elif action == "unpair":
         device.unpair(mac)
-        log.info("Kopplung %s entfernt", mac)
+        # Token wechseln, damit das entkoppelte Geraet wirklich keinen Zugriff mehr hat;
+        # weiterhin gekoppelte Geraete holen den neuen Token per /api/v1/pair.
+        config.set_secret("api_token", secrets.token_hex(16))
+        log.info("Kopplung %s entfernt, API-Token erneuert", mac)
     return RedirectResponse("/", status_code=303)
 
 
