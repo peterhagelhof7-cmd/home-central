@@ -42,5 +42,3 @@ Die Datenfelder entsprechen den C-Strukturen der Firmware (`owm_data_t`, `planes
 
 - Der Telegram-Bot darf nur an **einer** Stelle laufen. Sobald home-central den Token hat, muss er
   im Infoscreen entfernt sein (bzw. der Infoscreen im Client-Modus laufen).
-- `brightness`, `bl_floor` und `slide_sec` speichert der Infoscreen als Zahl im NVS; sein Export
-  enthält nur Strings, deshalb werden diese drei beim Import nicht übernommen.
