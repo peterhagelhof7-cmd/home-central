@@ -21,7 +21,7 @@
   <label class="cb"><input type="checkbox" name="rot180" value="1" {{ 'checked' if c.rot180 == '1' }}> Um 180&deg; drehen</label>
   <label>Angezeigte Slides</label>
   {% for sid, title in slides %}
-  <label class="cb"><input type="checkbox" name="sl_{{ sid }}" value="1" {{ 'checked' if c['sl_' ~ sid] == '1' }}> {{ title }}</label>
+  <label class="cb"><input type="checkbox" name="sl_{{ sid }}" value="1" {{ 'checked' if c.get('sl_' ~ sid, '1') == '1' }}> {{ title }}</label>
   {% endfor %}
   <input type="hidden" name="_checkboxes" value="rot180,{% for sid, _ in slides %}sl_{{ sid }}{{ ',' if not loop.last }}{% endfor %}">
   <label>Wechsel alle (Sekunden)</label>

@@ -10,6 +10,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import secrets
 import time
 from collections import deque
@@ -175,7 +176,8 @@ async def index(req: Request):
     rep = device.report()
     return templates.TemplateResponse(req, "index.html", {
         "sources": sources, "dev": rep, "dev_online": device.online(), "dev_seen": _ago(device.last_seen()),
-        "tg_ok": telegram.configured(), "version": __version__})
+        "tg_ok": telegram.configured(), "version": __version__,
+        "pending": device.pending(), "paired": device.paired()})
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -184,13 +186,14 @@ async def settings_get(req: Request, msg: str = ""):
         return r
     cfg = config.all_values()
     return templates.TemplateResponse(req, "settings.html", {
-        "c": cfg, "slides": config.SLIDES, "termine": kalender.termine(), "bl": kalender.BL_NAMES,
+        "c": cfg, "slides": config.slide_catalog(), "termine": kalender.termine(), "bl": kalender.BL_NAMES,
         "catalog": muell.AWIDO_CATALOG, "msg": msg, "api_token": config.secret("api_token"),
         "host": req.url.hostname, "gw": simple.default_gateway(),
         "has": {k: bool(str(cfg.get(k, "")).strip()) for k in ("owm_key", "n2yo_key", "nasa_key", "tg_token")}})
 
 
 SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token"}
+SLIDE_KEY = re.compile(r"^sl_[a-z0-9_]{1,12}$")
 INT_LIMITS = {"brightness": (5, 100), "bl_floor": (0, 95), "slide_sec": (3, 120)}
 
 
@@ -201,7 +204,7 @@ async def settings_save(req: Request):
     form = await req.form()
     vals = {}
     for cb in str(form.get("_checkboxes", "")).split(","):
-        if cb in config.DEFAULTS:
+        if cb in config.DEFAULTS or SLIDE_KEY.match(cb):
             vals[cb] = "1" if form.get(cb) else "0"
     for k, v in form.items():
         if k.startswith("_") or k not in config.DEFAULTS or k == "termine" or not isinstance(v, str):
@@ -364,7 +367,7 @@ def build_screen(take_cmd: bool) -> dict:
         "cmd": device.take_cmd() if take_cmd else None,
         "display": {"brightness": int(c["brightness"]), "bl_floor": int(c["bl_floor"]),
                     "slide_sec": int(c["slide_sec"]), "rot180": c["rot180"] == "1",
-                    "slides": {sid: c.get(f"sl_{sid}", "1") == "1" for sid, _ in config.SLIDES}},
+                    "slides": {sid: c.get(f"sl_{sid}", "1") == "1" for sid, _ in config.slide_catalog()}},
         "age": {},
     }
     for name in ("owm", "spessart", "dwd", "nina", "kurse", "fritzbox", "planes", "space"):
@@ -400,6 +403,7 @@ async def ui_screen(req: Request):
         return JSONResponse({}, status_code=401)
     out = build_screen(take_cmd=False)
     out["device"] = {**device.report(), "online": device.online()}
+    out["catalog"] = [{"id": i, "title": t} for i, t in config.slide_catalog()]
     return out
 
 
@@ -413,6 +417,54 @@ async def api_report(req: Request):
         return JSONResponse({"error": "json"}, status_code=400)
     device.update(rep if isinstance(rep, dict) else {}, req.client.host if req.client else "")
     return {"ok": True}
+
+
+@app.post("/api/v1/pair")
+async def api_pair(req: Request):
+    """Kopplung: Infoscreen fragt mit seiner MAC an; nach Freigabe in der
+    Weboberflaeche bekommt er den API-Token. Auch fuer Token-Erneuerung (401)."""
+    try:
+        j = await req.json()
+    except ValueError:
+        return JSONResponse({"error": "json"}, status_code=400)
+    mac = str(j.get("mac", "")).lower()[:17]
+    if not re.match(r"^[0-9a-f:]{17}$", mac):
+        return JSONResponse({"error": "mac"}, status_code=400)
+    ip = req.client.host if req.client else ""
+    if device.pair_request(mac, str(j.get("name", "?"))[:31], str(j.get("fw", ""))[:31], ip):
+        return {"status": "ok", "token": config.secret("api_token")}
+    log.info("Kopplungsanfrage von %s (%s, %s)", j.get("name"), mac, ip)
+    return {"status": "pending"}
+
+
+@app.post("/api/v1/tg/send")
+async def api_tg_send(req: Request):
+    """Message Board des Infoscreens (Web) sendet ueber den Bot von home-central."""
+    if not api_ok(req):
+        return JSONResponse({"error": "token"}, status_code=401)
+    try:
+        text = str((await req.json()).get("text", "")).strip()[:400]
+    except ValueError:
+        text = ""
+    if not text:
+        return JSONResponse({"error": "leer"}, status_code=400)
+    ok = await telegram.send(text)
+    return JSONResponse({"ok": ok}, status_code=200 if ok else 503)
+
+
+@app.post("/device/pair/{action}")
+async def device_pair(req: Request, action: str, mac: str = Form("")):
+    if (r := need_login(req)):
+        return r
+    if action == "approve":
+        device.approve(mac)
+        log.info("Infoscreen %s freigegeben", mac)
+    elif action == "deny":
+        device.deny(mac)
+    elif action == "unpair":
+        device.unpair(mac)
+        log.info("Kopplung %s entfernt", mac)
+    return RedirectResponse("/", status_code=303)
 
 
 @app.get("/api/v1/health")

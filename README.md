@@ -26,6 +26,16 @@ itsdangerous) und chrony, legt den Systembenutzer `home-central` an, kopiert den
 `/var/lib/home-central` (`config.json` = Einstellungen, `secrets.json` = Passwort-Hash, API-Token,
 Session-Schlüssel). Ohne Passwort-Argument bleibt ein vorhandenes Passwort erhalten.
 
+## Kopplung mit dem Infoscreen
+
+home-central kündigt sich per mDNS (Avahi) als `_home-central._tcp` an. Der Infoscreen (ab Firmware
+v1.3.0, Datenquelle „Automatisch") findet ihn darüber und fragt per `POST /api/v1/pair` mit seiner MAC
+an. In der Übersicht erscheint dann „Kopplungsanfrage – Freigeben". Nach der Freigabe bekommt der
+Infoscreen den API-Token, startet neu und läuft ab dann im Client-Modus (keine eigenen Abrufe, kein Bot,
+Zeit per NTP von home-central). Gekoppelte Geräte stehen in der Übersicht unter „Infoscreen" und lassen
+sich dort wieder entkoppeln. Ein neu erzeugter API-Token wird von gekoppelten Geräten automatisch über
+`/api/v1/pair` nachgeholt.
+
 ## Schnittstelle für den Infoscreen
 
 Alle Aufrufe mit Header `X-HC-Token: <API-Token>` (steht in den Einstellungen unter „Infoscreen-Anbindung").
@@ -33,7 +43,9 @@ Alle Aufrufe mit Header `X-HC-Token: <API-Token>` (steht in den Einstellungen un
 | Aufruf | Inhalt |
 |---|---|
 | `GET /api/v1/screen` | alle Daten (`owm`, `spessart`, `dwd`, `nina`, `kurse`, `fritzbox`, `planes`, `space`, `muell`, `termine`, `feiertage`, `telegram`), `display` (Helligkeit, Slides, Intervall, Drehung), `age` je Quelle in s (-1 = nie), `time` (Unix), `cmd` (z. B. `"reboot"`, einmalig) |
-| `POST /api/v1/report` | JSON vom Infoscreen: `dht22` {valid, temp_c, hum_pct}, `dht22_hist` {temp[], hum[]} (30-min-Punkte), `ssid`, `rssi`, `rssi_avg`, `status` (Text), `stacks` (Text), `fw` |
+| `POST /api/v1/report` | JSON vom Infoscreen: `dht22` {valid, temp_c, hum_pct}, `dht22_hist` {temp[], hum[]} (30-min-Punkte), `ssid`, `rssi`, `rssi_avg`, `status` (Text), `stacks` (Text), `fw`, `slides` [{id, title}] (Slide-Katalog → Auswahl + Live-Slides passen sich an neue Slides an) |
+| `POST /api/v1/pair` | ohne Token: {mac, name, fw} → `{"status":"pending"}` bzw. nach Freigabe `{"status":"ok","token":…}` |
+| `POST /api/v1/tg/send` | {text} → über den Bot an die Gruppe (Message Board im Infoscreen-Web) |
 | `GET /api/v1/health` | ohne Token, für Erreichbarkeitstests |
 
 Die Datenfelder entsprechen den C-Strukturen der Firmware (`owm_data_t`, `planes_data_t`, …).

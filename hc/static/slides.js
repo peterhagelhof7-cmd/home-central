@@ -274,9 +274,15 @@
   };
 
   // --- Rahmen: Titel, Seitenzahl, Countdown, Rotation ---
+  // Slide-Katalog: vom Infoscreen gemeldet (variabel, neue Slides kommen automatisch dazu)
+  function catalog() {
+    const c = D && D.catalog && D.catalog.length ? D.catalog : ORDER.map(id => ({ id, title: TITLES[id] }));
+    c.forEach(e => { if (!TITLES[e.id] || e.title) TITLES[e.id] = e.title || e.id; });
+    return c.map(e => e.id);
+  }
   function enabled() {
     const sl = (D && D.display && D.display.slides) || {};
-    return ORDER.filter(id => sl[id] !== false);
+    return catalog().filter(id => sl[id] !== false);
   }
   function interval() { return ((D && D.display && D.display.slide_sec) || 10) * 1000; }
   function show(i) {
@@ -288,7 +294,10 @@
     stage.querySelector('.ls-title').textContent = TITLES[id];
     stage.querySelector('.ls-foot').textContent = `${idx + 1} / ${list.length}`;
     content.innerHTML = '';
-    try { S[id](content); } catch (e) { msgCenter(content, 'Darstellungsfehler: ' + e.message); }
+    try {
+      if (S[id]) S[id](content);
+      else msgCenter(content, 'Vorschau für diesen Slide noch nicht verfügbar');
+    } catch (e) { msgCenter(content, 'Darstellungsfehler: ' + e.message); }
     document.querySelectorAll('.ls-dot').forEach((d, k) => d.classList.toggle('on', k === idx));
   }
   function tick() {

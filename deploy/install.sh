@@ -6,7 +6,7 @@ SRC=$(cd "$(dirname "$0")/.." && pwd)
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get -y -q install python3-fastapi python3-uvicorn python3-httpx python3-jinja2 \
-    python3-multipart python3-itsdangerous chrony >/dev/null
+    python3-multipart python3-itsdangerous chrony avahi-daemon >/dev/null
 
 id home-central >/dev/null 2>&1 || useradd --system --home-dir /var/lib/home-central --shell /usr/sbin/nologin home-central
 install -d -o home-central -g home-central -m 0750 /var/lib/home-central
@@ -24,6 +24,11 @@ chown -R root:root /opt/home-central
 # NTP-Server fuer das LAN
 install -m 0644 "$SRC/deploy/chrony-lan.conf" /etc/chrony/conf.d/home-central.conf
 systemctl restart chrony
+
+# mDNS-Ankuendigung (_home-central._tcp), damit der Infoscreen den Server findet
+install -m 0644 "$SRC/deploy/avahi-home-central.service" /etc/avahi/services/home-central.service
+systemctl enable --now avahi-daemon >/dev/null 2>&1
+systemctl reload avahi-daemon 2>/dev/null || systemctl restart avahi-daemon
 
 install -m 0644 "$SRC/deploy/home-central.service" /etc/systemd/system/home-central.service
 systemctl daemon-reload

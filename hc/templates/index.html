@@ -7,12 +7,30 @@
   <nav><a class="navbtn" href="/settings">&#9881; Einstellungen</a><a class="navbtn" href="/logout">Abmelden</a></nav>
 </div>
 
+{% for mac, p in pending.items() %}
+<div class="card" style="border:2px solid #e0a030">
+  <h2>Kopplungsanfrage</h2>
+  <div class="sub">Ein Infoscreen m&ouml;chte home-central als Datenquelle nutzen</div>
+  <table><tr><th>Name</th><td>{{ p.name }}</td></tr><tr><th>IP</th><td>{{ p.ip }}</td></tr>
+    <tr><th>MAC</th><td>{{ mac }}</td></tr><tr><th>Firmware</th><td>{{ p.fw }}</td></tr></table>
+  <form method="post" action="/device/pair/approve"><input type="hidden" name="mac" value="{{ mac }}">
+    <button type="submit">Freigeben</button></form>
+  <form method="post" action="/device/pair/deny"><input type="hidden" name="mac" value="{{ mac }}">
+    <button class="grey" type="submit">Ablehnen</button></form>
+</div>
+{% endfor %}
+
 <div class="card">
   <h2>Infoscreen</h2>
   <div class="sub">{% if dev_online %}<span class="dot ok"></span>online{% else %}<span class="dot bad"></span>offline{% endif %} &middot; letzter Abruf {{ dev_seen }}</div>
   {% if dev.status %}<pre>{{ dev.status }}</pre>{% else %}<div class="st">Noch keine Statusmeldung vom Infoscreen.</div>{% endif %}
   {% if dev.dht22 and dev.dht22.valid %}<div class="st">Innen: {{ '%.1f'|format(dev.dht22.temp_c) }} &deg;C, {{ '%.0f'|format(dev.dht22.hum_pct) }} % rF</div>{% endif %}
   <form method="post" action="/device/reboot"><button class="grey" type="submit">Infoscreen neu starten</button></form>
+  {% if paired %}<details style="margin-top:14px"><summary>Gekoppelte Ger&auml;te ({{ paired|length }})</summary>
+  {% for mac, p in paired.items() %}<div class="trow"><span>{{ p.name }} &middot; {{ mac }} &middot; {{ p.ip }} &middot; {{ p.fw }}</span>
+    <form method="post" action="/device/pair/unpair"><input type="hidden" name="mac" value="{{ mac }}">
+    <button class="small" type="submit" title="Kopplung entfernen">x</button></form></div>{% endfor %}
+  </details>{% endif %}
 </div>
 
 <div class="card">

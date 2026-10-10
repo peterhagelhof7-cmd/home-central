@@ -1,0 +1,11 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- home-central per mDNS ankuendigen: der esp-infoscreen sucht _home-central._tcp -->
+<service-group>
+  <name replace-wildcards="yes">home-central (%h)</name>
+  <service>
+    <type>_home-central._tcp</type>
+    <port>80</port>
+    <txt-record>api=1</txt-record>
+  </service>
+</service-group>

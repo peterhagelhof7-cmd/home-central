@@ -124,6 +124,26 @@ def set_secret(key: str, value: str) -> None:
         _atomic_write(SECRETS_FILE, _secrets)
 
 
+def secret_obj(key: str):
+    with _lock:
+        v = _secrets.get(key)
+        return json.loads(json.dumps(v)) if v is not None else None   # tiefe Kopie
+
+
+def set_secret_obj(key: str, value) -> None:
+    with _lock:
+        _secrets[key] = value
+        _atomic_write(SECRETS_FILE, _secrets)
+
+
+def slide_catalog() -> list[tuple[str, str]]:
+    """Slide-Katalog: vom Infoscreen gemeldet (variabel), sonst der bekannte Stand."""
+    cat = _cfg.get("slide_catalog")
+    if isinstance(cat, list) and cat:
+        return [(s["id"], s["title"]) for s in cat if isinstance(s, dict) and s.get("id")]
+    return list(SLIDES)
+
+
 def import_infoscreen(data: dict) -> tuple[int, list[str]]:
     """Export des esp-infoscreen uebernehmen (ohne WLAN). Liefert (Anzahl, uebersprungen)."""
     take, skipped = {}, []
