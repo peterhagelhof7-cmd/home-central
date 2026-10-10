@@ -356,15 +356,12 @@ def _src(name: str, max_age: float | None = None):
     return p.data, (int(time.time() - p.ok_ts) if p.ok_ts else -1)
 
 
-@app.get("/api/v1/screen")
-async def api_screen(req: Request):
-    if not api_ok(req):
-        return JSONResponse({"error": "token"}, status_code=401)
-    device.seen()
+def build_screen(take_cmd: bool) -> dict:
+    """Gesamtpaket fuer den Infoscreen (und die Live-Slides im Web)."""
     c = config.all_values()
     out = {
         "v": 1, "server": __version__, "time": int(time.time()), "tz": "CET-1CEST,M3.5.0,M10.5.0/3",
-        "cmd": device.take_cmd(),
+        "cmd": device.take_cmd() if take_cmd else None,
         "display": {"brightness": int(c["brightness"]), "bl_floor": int(c["bl_floor"]),
                     "slide_sec": int(c["slide_sec"]), "rot180": c["rot180"] == "1",
                     "slides": {sid: c.get(f"sl_{sid}", "1") == "1" for sid, _ in config.SLIDES}},
@@ -382,7 +379,27 @@ async def api_screen(req: Request):
     out["termine"] = [{"date": e["d"], "time": e.get("t", ""), "title": e["ti"]} for e in kalender.termine()]
     today = now().strftime("%Y-%m-%d")
     out["feiertage"] = [f for f in kalender.feiertage() if f["date"] >= today]
-    out["telegram"] = {"version": telegram.version, "msgs": list(telegram.history)}
+    out["telegram"] = {"version": telegram.version, "msgs": list(telegram.history),
+                       "configured": telegram.configured()}
+    return out
+
+
+@app.get("/api/v1/screen")
+async def api_screen(req: Request):
+    if not api_ok(req):
+        return JSONResponse({"error": "token"}, status_code=401)
+    device.seen()
+    return build_screen(take_cmd=True)
+
+
+@app.get("/ui/screen.json")
+async def ui_screen(req: Request):
+    """Wie /api/v1/screen, aber per Web-Login und ohne Kommandos zu verbrauchen;
+    plus die Geraete-Meldung (Innenraum/WLAN) fuer die Live-Slides."""
+    if not logged_in(req):
+        return JSONResponse({}, status_code=401)
+    out = build_screen(take_cmd=False)
+    out["device"] = {**device.report(), "online": device.online()}
     return out
 
 

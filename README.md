@@ -10,7 +10,7 @@ noch ein kompaktes JSON ab und stellt seine Uhr über home-central.
 - **Telegram-Bot** komplett (Message Board, @-Kommandos, Warnungen, 6-Uhr-Bericht, Sonntags-Kino,
   Download-Wächter, Meldung wenn der Infoscreen offline geht)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
-  Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
+  **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
 - **NTP-Server** (chrony) für das LAN
 
 ## Installation (Debian 13)
@@ -33,7 +33,7 @@ Alle Aufrufe mit Header `X-HC-Token: <API-Token>` (steht in den Einstellungen un
 | Aufruf | Inhalt |
 |---|---|
 | `GET /api/v1/screen` | alle Daten (`owm`, `spessart`, `dwd`, `nina`, `kurse`, `fritzbox`, `planes`, `space`, `muell`, `termine`, `feiertage`, `telegram`), `display` (Helligkeit, Slides, Intervall, Drehung), `age` je Quelle in s (-1 = nie), `time` (Unix), `cmd` (z. B. `"reboot"`, einmalig) |
-| `POST /api/v1/report` | JSON vom Infoscreen: `dht22` {valid, temp_c, hum_pct}, `status` (Text), `stacks` (Text), `fw` |
+| `POST /api/v1/report` | JSON vom Infoscreen: `dht22` {valid, temp_c, hum_pct}, `dht22_hist` {temp[], hum[]} (30-min-Punkte), `ssid`, `rssi`, `rssi_avg`, `status` (Text), `stacks` (Text), `fw` |
 | `GET /api/v1/health` | ohne Token, für Erreichbarkeitstests |
 
 Die Datenfelder entsprechen den C-Strukturen der Firmware (`owm_data_t`, `planes_data_t`, …).

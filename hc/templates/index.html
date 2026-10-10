@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}home-central{% endblock %}
 {% block body %}
+<script src="/static/slides.js"></script>
 <div class="top">
   <h1>home-central</h1>
   <nav><a class="navbtn" href="/settings">&#9881; Einstellungen</a><a class="navbtn" href="/logout">Abmelden</a></nav>
@@ -28,6 +29,19 @@
     </tr>
     {% endfor %}
   </table>
+</div>
+
+<div class="card">
+  <h2>Live-Slides</h2><div class="sub">so wie auf dem Infoscreen &ndash; mit den aktuellen Daten von home-central</div>
+  <div class="ls-wrap"><div id="ls-stage">
+    <div class="ls-title"></div><div class="ls-content"></div><div class="ls-foot"></div><div class="ls-cd"></div>
+  </div></div>
+  <div class="ls-ctl">
+    <button id="ls-prev" title="vorheriger Slide">&#9664;</button>
+    <div id="ls-dots"></div>
+    <button id="ls-pause" title="Pause">&#10074;&#10074;</button>
+    <button id="ls-next" title="n&auml;chster Slide">&#9654;</button>
+  </div>
 </div>
 
 <div class="card">

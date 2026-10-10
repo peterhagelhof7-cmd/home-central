@@ -39,3 +39,17 @@ th { color: var(--muted); font-weight: normal; }
 pre { white-space: pre-wrap; margin: 0; font-size: 13px; color: #b0b8d0; }
 code { background: var(--field); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
 details summary { cursor: pointer; color: var(--link); font-size: 14px; }
+
+/* Live-Slides: Buehne 800x480 wie das Display, per transform skaliert */
+.ls-wrap { position: relative; width: 100%; overflow: hidden; border-radius: 8px; }
+#ls-stage { position: absolute; left: 0; top: 0; width: 800px; height: 480px; transform-origin: 0 0;
+  background: #0d1428; font-family: Montserrat, system-ui, sans-serif; overflow: hidden; }
+#ls-stage .ls-title { position: absolute; left: 0; right: 0; top: 18px; text-align: center; font-size: 28px; color: #8ab4f8; }
+#ls-stage .ls-content { position: absolute; left: 0; top: 58px; width: 800px; height: 372px; }
+#ls-stage .ls-foot { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 16px; color: #556080; }
+#ls-stage .ls-cd { position: absolute; right: 16px; bottom: 16px; font-size: 14px; color: #556080; }
+.ls-ctl { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ls-ctl button { width: auto; margin: 0; padding: 6px 14px; background: var(--nav); color: var(--link); }
+#ls-dots { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; justify-content: center; }
+.ls-dot { width: 12px !important; height: 12px; padding: 0 !important; border-radius: 50%; background: #33406a !important; }
+.ls-dot.on { background: var(--link) !important; }
