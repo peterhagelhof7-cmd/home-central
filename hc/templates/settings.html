@@ -148,9 +148,10 @@
 <div class="card" id="ntfy"><h2>Weiterleitung an ntfy</h2><div class="sub">Für Familienmitglieder ohne Telegram (nur empfangen)</div>
 <form method="post" action="/settings/save"><input type="hidden" name="_card" value="ntfy">
   <label class="cb"><input type="checkbox" name="ntfy_on" value="1" {{ 'checked' if c.ntfy_on == '1' }}> Weiterleitung aktiv</label>
-  <label class="cb"><input type="checkbox" name="ntfy_grp" value="1" {{ 'checked' if c.ntfy_grp == '1' }}> Gruppennachrichten (ohne Bot-Befehle)</label>
+  <label class="cb"><input type="checkbox" name="ntfy_grp" value="1" {{ 'checked' if c.ntfy_grp == '1' }}> Gruppennachrichten</label>
+  <label class="cb"><input type="checkbox" name="ntfy_bot" value="1" {{ 'checked' if c.ntfy_bot == '1' }}> Antworten und Berichte des Bots (6-Uhr-Bericht, Kino)</label>
   <label class="cb"><input type="checkbox" name="ntfy_warn" value="1" {{ 'checked' if c.ntfy_warn == '1' }}> Warnungen (DWD, NINA, Windböen)</label>
-  <input type="hidden" name="_checkboxes" value="ntfy_on,ntfy_grp,ntfy_warn">
+  <input type="hidden" name="_checkboxes" value="ntfy_on,ntfy_grp,ntfy_bot,ntfy_warn">
   <label>Server</label>
   <input type="text" name="ntfy_server" value="{{ c.ntfy_server }}" placeholder="https://ntfy.sh">
   <label>Kanal (wird beim Aktivieren zufällig erzeugt)</label>

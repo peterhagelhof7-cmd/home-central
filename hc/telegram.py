@@ -43,17 +43,21 @@ def _hist_add(frm: str, text: str):
     version += 1
 
 
-async def send(text: str) -> bool:
+async def send(text: str, fwd: bool = True) -> bool:
+    """In die Gruppe senden. fwd=True: auch an ntfy (Bot-Antworten, Berichte);
+    False fuer Technik-Meldungen, Warnungen (eigener Weg) und Message Board."""
     if not configured():
         return False
     try:
         r = await net.client.post(f"{API}{config.get('tg_token')}/sendMessage",
                                   data={"chat_id": config.get("tg_chat"), "text": text[:4000]}, timeout=15)
         r.raise_for_status()
-        return True
     except Exception as e:
         log.warning("sendMessage fehlgeschlagen: %s", e)
         return False
+    if fwd:
+        await ntfy.bot_message(_st["botname"] or "Bot", text)
+    return True
 
 
 # --- Bausteine ----------------------------------------------------------------
@@ -358,7 +362,7 @@ async def handle_command(text: str):
     if "feiertag" in low:
         return await cmd_feiertag()
     if "stacks" in low:
-        return await send(device.report().get("stacks") or "Keine Stack-Daten vom Infoscreen.")
+        return await send(device.report().get("stacks") or "Keine Stack-Daten vom Infoscreen.", fwd=False)
     if "alarm" in low:
         return await cmd_alarm()
     if "nacht" in low:
@@ -412,9 +416,9 @@ async def _process(updates: list, execute: bool):
 
 
 def _is_command(text: str) -> bool:
-    """Bot-Befehle (@bot ... oder /...) nicht an ntfy weiterleiten."""
-    bot = _st["botname"]
-    return text.lstrip().startswith("/") or bool(bot and f"@{bot}" in text.lower())
+    """Slash-Befehle (/start ...) nicht an ntfy weiterleiten. @bot-Fragen schon,
+    damit die (ebenfalls weitergeleitete) Antwort verstaendlich ist."""
+    return text.lstrip().startswith("/")
 
 
 async def _fetch_botname():
@@ -451,7 +455,7 @@ async def bot_loop():
 async def _warn(kind: str, key: str, text: str):
     """Warnung je Kanal genau einmal melden; bei Fehlschlag spaeter erneut."""
     if configured() and _warned.get(("tg", kind)) != key:
-        if await send(text):
+        if await send(text, fwd=False):
             _warned[("tg", kind)] = key
     if ntfy.enabled() and config.get("ntfy_warn") == "1" and _warned.get(("ntfy", kind)) != key:
         if await ntfy.warning(text):
@@ -502,17 +506,17 @@ async def push_loop():
         if configured():
             try:
                 if not _st["greeted"]:
-                    await send(f"\U0001F504 home-central gestartet.\n{build_weather()}\n{build_internet()}")
+                    await send(f"\U0001F504 home-central gestartet.\n{build_weather()}\n{build_internet()}", fwd=False)
                     _st["greeted"] = True
                 await _check_pushes()
                 await _check_schedules()
                 alert = net.health_alert()
                 if alert:
-                    await send(alert)
+                    await send(alert, fwd=False)
                 on = device.online()
                 if _st["dev_online"] is not None and on != _st["dev_online"]:
                     await send("✅ Infoscreen wieder online." if on else
-                               "⚠ Infoscreen seit >10 min nicht mehr gemeldet.")
+                               "⚠ Infoscreen seit >10 min nicht mehr gemeldet.", fwd=False)
                 _st["dev_online"] = on
             except Exception:
                 log.exception("Push-Pruefung fehlgeschlagen")

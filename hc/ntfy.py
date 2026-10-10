@@ -46,6 +46,12 @@ async def group_message(sender: str, text: str) -> bool:
     return False
 
 
+async def bot_message(botname: str, text: str) -> bool:
+    if enabled() and config.get("ntfy_bot") == "1":
+        return await publish(text, title=botname, tags="robot")
+    return False
+
+
 async def warning(text: str) -> bool:
     if enabled() and config.get("ntfy_warn") == "1":
         return await publish(text, title="Warnung", priority="high", tags="warning")

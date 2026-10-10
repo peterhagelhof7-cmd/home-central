@@ -114,7 +114,7 @@ Anmeldung mit dem Web-Passwort; nach 5 Fehlversuchen ist das Login 5 min gesperr
 | **Feiertage** | Bundesland |
 | **Fritzbox** | Adresse (leer = Gateway von home-central) |
 | **Telegram** | Bot-Token (leer = behalten), Gruppen-Chat-ID |
-| **Weiterleitung an ntfy** | Aktiv, Gruppennachrichten, Warnungen, Server, Kanal; **Testnachricht senden**, **Neuen Kanal erzeugen** (siehe 3.4) |
+| **Weiterleitung an ntfy** | Aktiv, Gruppennachrichten, Bot-Antworten/Berichte, Warnungen, Server, Kanal; **Testnachricht senden**, **Neuen Kanal erzeugen** (siehe 3.4) |
 | **Infoscreen-Anbindung** | Server-Adresse, API-Token, NTP-Server; **Neuen API-Token erzeugen** (gekoppelte Geräte holen ihn automatisch) |
 | **System** | Import des Infoscreen-Exports, Export der eigenen Einstellungen, Log-Download, Passwort ändern |
 
@@ -138,11 +138,13 @@ nur empfangen, nicht in die Gruppe schreiben.
 
 | Häkchen | Inhalt | Darstellung in ntfy |
 |---|---|---|
-| Gruppennachrichten | jede Textnachricht aus der Telegram-Gruppe, außerdem Nachrichten, die über das Message Board (home-central oder Infoscreen) in die Gruppe gehen | Titel = Vorname des Absenders bzw. „Message Board“/„Infoscreen“ |
+| Gruppennachrichten | jede Textnachricht aus der Telegram-Gruppe (auch Fragen an den Bot), außerdem Nachrichten, die über das Message Board (home-central oder Infoscreen) in die Gruppe gehen | Titel = Vorname des Absenders bzw. „Message Board“/„Infoscreen“ |
+| Antworten und Berichte des Bots | Antworten auf Befehle (`@<botname> wetter` …), 6-Uhr-Bericht mit Terminen, Sonntags-Kino | Titel = Bot-Name |
 | Warnungen | DWD-Wetterwarnung, NINA/BBK-Warnung, Windböen ≥ 50 km/h – jede Warnung einmal | Titel „Warnung“, hohe Priorität |
 
-**Nicht** weitergeleitet: Bot-Befehle (`@<botname> …`, `/…`) und die Antworten des Bots,
-6-Uhr-Bericht, Kino, technische Meldungen.
+**Nicht** weitergeleitet: Slash-Befehle (`/start` …) und technische Meldungen (home-central gestartet,
+Download-Problem, Infoscreen offline/online, Stack-Daten). Warnungen kommen nur über das Häkchen
+„Warnungen“, nie doppelt.
 
 **Einrichten:**
 

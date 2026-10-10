@@ -40,7 +40,7 @@ DEFAULTS = {
     "feiertage_bl": "BY",
     "tg_token": "", "tg_chat": "",
     # Weiterleitung an ntfy (Familie ohne Telegram)
-    "ntfy_on": "0", "ntfy_server": "https://ntfy.sh", "ntfy_topic": "", "ntfy_grp": "1", "ntfy_warn": "1",
+    "ntfy_on": "0", "ntfy_server": "https://ntfy.sh", "ntfy_topic": "", "ntfy_grp": "1", "ntfy_bot": "1", "ntfy_warn": "1",
     "termine": [],
 }
 

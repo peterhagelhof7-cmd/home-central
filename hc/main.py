@@ -343,7 +343,7 @@ async def tg_send(req: Request, text: str = Form("")):
         return PlainTextResponse("login", status_code=401)
     if not text.strip():
         return PlainTextResponse("leer", status_code=400)
-    ok = await telegram.send(text.strip()[:400])
+    ok = await telegram.send(text.strip()[:400], fwd=False)
     if ok:
         await ntfy.group_message("Message Board", text.strip()[:400])
     return PlainTextResponse("OK" if ok else "Telegram nicht konfiguriert oder Fehler", status_code=200 if ok else 503)
@@ -503,7 +503,7 @@ async def api_tg_send(req: Request):
         text = ""
     if not text:
         return JSONResponse({"error": "leer"}, status_code=400)
-    ok = await telegram.send(text)
+    ok = await telegram.send(text, fwd=False)
     if ok:
         await ntfy.group_message("Infoscreen", text)
     return JSONResponse({"ok": ok}, status_code=200 if ok else 503)
