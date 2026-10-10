@@ -365,6 +365,7 @@ def build_screen(take_cmd: bool) -> dict:
     out = {
         "v": 1, "server": __version__, "time": int(time.time()), "tz": "CET-1CEST,M3.5.0,M10.5.0/3",
         "cmd": device.take_cmd() if take_cmd else None,
+        "cfg_hash": config_hash(),
         "display": {"brightness": int(c["brightness"]), "bl_floor": int(c["bl_floor"]),
                     "slide_sec": int(c["slide_sec"]), "rot180": c["rot180"] == "1",
                     "slides": {sid: c.get(f"sl_{sid}", "1") == "1" for sid, _ in config.slide_catalog()}},
@@ -417,6 +418,38 @@ async def api_report(req: Request):
         return JSONResponse({"error": "json"}, status_code=400)
     device.update(rep if isinstance(rep, dict) else {}, req.client.host if req.client else "")
     return {"ok": True}
+
+
+MIRROR_SKIP = {"slide_catalog", "brightness", "bl_floor", "slide_sec", "rot180"}
+
+
+def config_mirror() -> dict:
+    """Einstellungs-Kopie fuer den Infoscreen (Notbetrieb ohne home-central).
+    Format wie sein eigener Export (alles Strings, termine als JSON-String).
+    Anzeige-Werte laufen ueber /screen; leere Keys werden nicht gesendet, damit
+    sie im Geraet nie einen vorhandenen Key loeschen."""
+    out = {}
+    for k, v in config.all_values().items():
+        if k in MIRROR_SKIP or k.startswith("sl_"):
+            continue
+        if k == "termine":
+            v = json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+        v = str(v)
+        if k in SECRET_KEYS and not v.strip():
+            continue
+        out[k] = v
+    return out
+
+
+def config_hash() -> str:
+    return hashlib.sha1(json.dumps(config_mirror(), sort_keys=True).encode()).hexdigest()[:12]
+
+
+@app.get("/api/v1/config")
+async def api_config(req: Request):
+    if not api_ok(req):
+        return JSONResponse({"error": "token"}, status_code=401)
+    return {"hash": config_hash(), "config": config_mirror()}
 
 
 @app.post("/api/v1/pair")
