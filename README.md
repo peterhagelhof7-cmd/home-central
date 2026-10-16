@@ -16,7 +16,8 @@ Kopplung, Betrieb, Fehlersuche).
   Telegram – reine Empfangs-App ohne Konto/Chat (Admin-Guide 3.4)
 - **MeshCore-Kanäle → Telegram**: Nachrichten aus gewählten Kanälen eines
   [esp-meshcore-gateway](https://github.com/peterhagelhof7-cmd/esp-meshcore-gateway) (ab 0.10.0, Kanal-API
-  mit API-Schlüssel) in die Telegram-Gruppe, optional auch an ntfy (Admin-Guide 3.5)
+  mit API-Schlüssel) in die Telegram-Gruppe, optional auch an ntfy; umgekehrt Warnungen (DWD, NINA/KATWARN,
+  Windböen) in einen freigegebenen Mesh-Kanal (Admin-Guide 3.5)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
   **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
 - **NTP-Server** (chrony) für das LAN, **mDNS-Ankündigung** (Avahi), damit der Infoscreen den Server

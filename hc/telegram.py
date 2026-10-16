@@ -10,7 +10,7 @@ import time
 from collections import deque
 from datetime import date
 
-from . import config, device, net, ntfy, poller
+from . import config, device, meshcore, net, ntfy, poller
 from .sources import extra, kalender, simple
 from .tz import now, today_iso
 
@@ -460,6 +460,9 @@ async def _warn(kind: str, key: str, text: str):
     if ntfy.enabled() and config.get("ntfy_warn") == "1" and _warned.get(("ntfy", kind)) != key:
         if await ntfy.warning(text):
             _warned[("ntfy", kind)] = key
+    if meshcore.push_enabled(kind) and _warned.get(("mesh", kind)) != key:
+        if await meshcore.push(text):
+            _warned[("mesh", kind)] = key
 
 
 async def _check_pushes():
@@ -477,6 +480,7 @@ async def _check_pushes():
         elif g < BOE_WARN_KMH - 5:
             _warned.pop(("tg", "boe"), None)
             _warned.pop(("ntfy", "boe"), None)
+            _warned.pop(("mesh", "boe"), None)
 
 
 async def _check_schedules():
@@ -498,9 +502,9 @@ async def _check_schedules():
 async def push_loop():
     await asyncio.sleep(20)   # Quellen erst einmal laufen lassen
     while True:
-        if ntfy.enabled() and not configured():
+        if (ntfy.enabled() or meshcore.push_enabled()) and not configured():
             try:
-                await _check_pushes()   # nur Warnungen an ntfy
+                await _check_pushes()   # nur Warnungen an ntfy / ins Mesh
             except Exception:
                 log.exception("Push-Pruefung fehlgeschlagen")
         if configured():

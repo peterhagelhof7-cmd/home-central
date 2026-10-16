@@ -10,10 +10,15 @@ Gateway neu gestartet -> ab since=0 (alles danach ist neu).
 Beim allerersten Abruf wird der vorhandene Verlauf uebersprungen.
 """
 import logging
+from collections import deque
 
 from . import config, net, ntfy, telegram
 
 log = logging.getLogger("meshcore")
+
+# Selbst ins Mesh geschickte Texte (wie vom Gateway bestaetigt): beim
+# Weiterleiten Mesh -> Telegram ueberspringen, sonst kaeme jede Warnung doppelt.
+_pushed: deque = deque(maxlen=50)
 
 STATE_KEY = "mc_state"       # secret_obj: {"url": ..., "boot": ..., "next": ...}
 PAGE = 50                    # max. Nachrichten je Antwort (wie im Gateway)
@@ -72,7 +77,43 @@ def format_batch(gateway: str, msgs: list[dict], gap: bool) -> list[str]:
 
 
 def pick(msgs: list[dict], channels: set[str], own: bool) -> list[dict]:
-    return [m for m in msgs if m.get("channel") in channels and (own or m.get("dir") == "rx")]
+    return [m for m in msgs if m.get("channel") in channels and (own or m.get("dir") == "rx")
+            and not (m.get("dir") == "tx" and m.get("text") in _pushed)]
+
+
+# --- Warnungen ins Mesh (Gateway E44: POST /api/v1/send) -------------------------
+def push_enabled(kind: str = "") -> bool:
+    """Senden ins Mesh eingeschaltet (und fuer diese Art von Warnung)."""
+    if not (config.get("mc_push") == "1" and str(config.get("mc_push_ch")).strip()
+            and base_url() and str(config.get("mc_key")).strip()):
+        return False
+    return not kind or config.get(f"mc_push_{kind}") == "1"
+
+
+def mesh_text(text: str) -> str:
+    """Kurz halten (jede Nachricht kostet Funkzeit, max. ~140 Byte): Zeilen zusammenziehen."""
+    return " ".join(text.split())
+
+
+async def push(text: str) -> bool:
+    """Text in den freigegebenen Mesh-Kanal senden. True = vom Gateway angenommen."""
+    if not push_enabled():
+        return False
+    try:
+        r = await net.client.post(base_url() + "/api/v1/send", timeout=10,
+                                  headers={"X-API-Key": str(config.get("mc_key")).strip()},
+                                  data={"channel": str(config.get("mc_push_ch")).strip(), "text": mesh_text(text)})
+        j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        if r.status_code != 200:
+            log.warning("Senden ins Mesh abgelehnt: HTTP %s %s", r.status_code, j.get("error", ""))
+            return False
+    except Exception as e:  # noqa: BLE001
+        log.warning("Senden ins Mesh fehlgeschlagen: %s", e)
+        return False
+    _pushed.append(j.get("text", mesh_text(text)))
+    if j.get("truncated"):
+        log.info("Mesh-Text gekuerzt: %s", j.get("text"))
+    return True
 
 
 async def poll():

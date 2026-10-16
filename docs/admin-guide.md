@@ -193,6 +193,21 @@ Telegram-Gruppe weiterleiten, z. B. die Alarme der Überwachung. Das Gateway mus
   kommt der Hinweis **„Nachrichten verpasst“**.
 - Kann Telegram nicht senden, bleibt die Position stehen: beim nächsten Abruf (1 min) wird nachgeliefert.
 
+**Warnungen ins Mesh senden:** Dieselben Warnungen, die in die Telegram-Gruppe gehen, kann home-central auch in
+einen MeshCore-Kanal schicken. So erreichen sie auch Leute ohne Internet.
+1. Im Gateway: System → Kanal-API → **„Senden erlauben in“** den Kanal wählen (z. B. `warnungen`), „Übernehmen“.
+2. In home-central, Karte MeshCore-Gateway: **Warnungen ins Mesh senden** aktivieren, denselben Kanal wählen und
+   die Arten anhaken: **DWD** (Wetterwarnungen), **NINA** (Bevölkerungsschutz: MoWaS, KATWARN, BIWAPP, Polizei,
+   Hochwasser), **Windböen** (Spessartwetter).
+
+- Jede Warnung geht **einmal** ins Mesh (wie bei Telegram). Ein Neustart von home-central meldet eine noch
+  laufende Warnung einmal neu.
+- Mehrzeilige Texte werden zu einer Zeile, zu lange kürzt das Gateway (Platz ca. 140 Zeichen).
+- Das Gateway nimmt höchstens **10 Nachrichten pro Stunde** an. Lehnt es ab (Limit, Kanal nicht freigegeben),
+  versucht home-central es alle 30 s erneut; der Grund steht im Log (`Senden ins Mesh abgelehnt`).
+- Was home-central selbst ins Mesh schickt, wird beim Weiterleiten Mesh → Telegram übersprungen, damit
+  Warnungen nicht doppelt in der Gruppe landen.
+
 ---
 
 ## 4. Infoscreen koppeln

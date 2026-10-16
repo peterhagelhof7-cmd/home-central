@@ -174,7 +174,6 @@
   <label class="cb"><input type="checkbox" name="mc_on" value="1" {{ 'checked' if c.mc_on == '1' }}> Weiterleitung aktiv</label>
   <label class="cb"><input type="checkbox" name="mc_own" value="1" {{ 'checked' if c.mc_own == '1' }}> auch Meldungen des Gateways selbst (Alarme der Überwachung)</label>
   <label class="cb"><input type="checkbox" name="mc_ntfy" value="1" {{ 'checked' if c.mc_ntfy == '1' }}> zusätzlich an ntfy (wenn dort aktiv)</label>
-  <input type="hidden" name="_checkboxes" value="mc_on,mc_own,mc_ntfy">
   <label>Adresse des Gateways</label>
   <input type="text" name="mc_url" value="{{ c.mc_url }}" placeholder="http://192.168.178.151 oder Hostname">
   <label>API-Schlüssel {% if has.mc_key %}(gespeichert, leer lassen = behalten){% endif %}</label>
@@ -188,6 +187,20 @@
   {% else %}
     <div class="st">Noch keine Kanalliste – Adresse und Schlüssel speichern, dann „Verbindung testen“.</div>
   {% endif %}
+  <label>Warnungen ins Mesh senden</label>
+  <label class="cb"><input type="checkbox" name="mc_push" value="1" {{ 'checked' if c.mc_push == '1' }}> aktiv, in Kanal:</label>
+  <select name="mc_push_ch">
+    <option value="">– wählen –</option>
+    {% for n in (mc.channels + ([c.mc_push_ch] if c.mc_push_ch else [])) | unique %}
+    <option value="{{ n }}" {{ 'selected' if n == c.mc_push_ch }}>{{ n }}{% if mc.channels and n not in mc.channels %} (fehlt am Gateway){% endif %}</option>
+    {% endfor %}
+  </select>
+  <label class="cb"><input type="checkbox" name="mc_push_dwd" value="1" {{ 'checked' if c.mc_push_dwd == '1' }}> DWD-Wetterwarnungen</label>
+  <label class="cb"><input type="checkbox" name="mc_push_nina" value="1" {{ 'checked' if c.mc_push_nina == '1' }}> NINA (BBK, KATWARN, BIWAPP, Polizei, Hochwasser)</label>
+  <label class="cb"><input type="checkbox" name="mc_push_boe" value="1" {{ 'checked' if c.mc_push_boe == '1' }}> Windböen (Spessartwetter)</label>
+  <input type="hidden" name="_checkboxes" value="mc_on,mc_own,mc_ntfy,mc_push,mc_push_dwd,mc_push_nina,mc_push_boe">
+  <div class="st">Im Gateway unter System → Kanal-API „Senden erlauben in“ auf denselben Kanal stellen. Das Gateway nimmt höchstens
+    10 Nachrichten pro Stunde an und kürzt lange Texte. Jede Warnung geht einmal ins Mesh; eigene Warnungen werden nicht zurück nach Telegram geleitet.</div>
   <button type="submit">Speichern</button>
 </form>
   <form method="post" action="/settings/meshcore/test"><button class="grey" type="submit">Verbindung testen</button></form>
