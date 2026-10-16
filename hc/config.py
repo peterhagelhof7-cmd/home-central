@@ -41,6 +41,8 @@ DEFAULTS = {
     "tg_token": "", "tg_chat": "",
     # Weiterleitung an ntfy (Familie ohne Telegram)
     "ntfy_on": "0", "ntfy_server": "https://ntfy.sh", "ntfy_topic": "", "ntfy_grp": "1", "ntfy_bot": "1", "ntfy_warn": "1",
+    # MeshCore-Gateway: Kanaele -> Telegram (mc_channels = Kanalnamen, je Zeile einer)
+    "mc_on": "0", "mc_url": "", "mc_key": "", "mc_channels": "", "mc_own": "1", "mc_ntfy": "0",
     "termine": [],
 }
 

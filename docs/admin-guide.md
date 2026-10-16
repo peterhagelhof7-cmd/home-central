@@ -167,6 +167,32 @@ erzeugen** und auf allen Geräten neu abonnieren. Die Nachrichten laufen über d
 Der Kanalname steht in `config.json` und im Einstellungs-Export, er wird nicht an den Infoscreen
 gespiegelt.
 
+### 3.5 MeshCore-Kanäle an Telegram (ab 0.3.0)
+
+home-central kann Nachrichten aus Kanälen eines **esp-meshcore-gateway** (Firmware ab 0.10.0) in die
+Telegram-Gruppe weiterleiten, z. B. die Alarme der Überwachung. Das Gateway muss von home-central aus
+**im Netz erreichbar** sein.
+
+1. Im Gateway: **System → Kanal-API → Schlüssel erzeugen**, Schlüssel kopieren.
+2. In home-central: **Einstellungen → MeshCore-Gateway**: Adresse (IP oder Hostname des Gateways) und
+   API-Schlüssel eintragen, **Speichern**, dann **Verbindung testen**. Danach erscheinen die Kanäle des
+   Gateways als Häkchen.
+3. Gewünschte Kanäle anhaken, **Weiterleitung aktiv** setzen, speichern.
+
+- **auch Meldungen des Gateways selbst**: Alarme, die das Gateway in einen Kanal sendet, kommen mit.
+  Ohne Haken nur Nachrichten anderer Teilnehmer.
+- **zusätzlich an ntfy**: dieselben Nachrichten auch in den ntfy-Kanal (wenn ntfy aktiv ist).
+- In Telegram sieht eine Nachricht so aus: `📡 sps-alarm · DE-BY-SUL02-SPS-GW:` und darunter der Text.
+  Mehrere Nachrichten aus einer Abfrage kommen gesammelt in einer Telegram-Nachricht.
+- Abfrage alle 15 s. Beim **ersten** Abruf (oder nach Wechsel der Adresse) werden vorhandene Nachrichten
+  übersprungen, damit kein alter Verlauf in die Gruppe kommt. Danach merkt sich home-central die
+  Position, auch über einen eigenen Neustart hinweg.
+- Startet das **Gateway** neu, liest home-central dessen Kanäle wieder von vorn: alles seit dem Neustart
+  ist neu und wird weitergeleitet.
+- Das Gateway hält nur die letzten 200 Kanal-Zeilen im RAM. War home-central länger nicht erreichbar,
+  kommt der Hinweis **„Nachrichten verpasst“**.
+- Kann Telegram nicht senden, bleibt die Position stehen: beim nächsten Abruf (1 min) wird nachgeliefert.
+
 ---
 
 ## 4. Infoscreen koppeln
@@ -227,6 +253,12 @@ die Seite einen Fehler, steht der Grund im Log (`ntfy fehlgeschlagen: …`). Kom
 Gruppennachrichten: Datenschutz-Modus des Bots prüfen (siehe 3.4). Im Handy ntfy vom
 Akku-Sparen ausnehmen, sonst kommen Benachrichtigungen verspätet.
 
+**MeshCore: nichts kommt an.** Übersicht → Zeile „MeshCore-Gateway“ zeigt den letzten Fehler.
+`HTTP 401` = Schlüssel falsch (im Gateway neu erzeugt?), `HTTP 403` = Kanal-API im Gateway
+ausgeschaltet, `ConnectTimeout` = Gateway von home-central aus nicht erreichbar (anderes Netz, keine
+Route). Kanal angehakt? Kanalnamen müssen exakt wie im Gateway heißen; ein umbenannter Kanal steht als
+„(fehlt am Gateway)“ in der Liste.
+
 **Infoscreen „offline“.** Er ruft seit > 10 min nicht ab: WLAN, Stromversorgung, Firmware-Modus
 (Datenquelle) prüfen. Nach 30 min ohne home-central wechselt er selbst in den Notbetrieb.
 
@@ -246,3 +278,6 @@ Akku-Sparen ausnehmen, sonst kommen Benachrichtigungen verspätet.
   nie im Repo.
 - Kein HTTPS: für das Heimnetz gedacht, nicht ins Internet freigeben.
 - ntfy-Weiterleitung: Wer den Kanalnamen kennt, kann lesen und schreiben (siehe 3.4).
+- MeshCore-Gateway: Der API-Schlüssel erlaubt nur das Lesen von Kanälen und Nachrichten. Er steht in
+  `config.json` und im Einstellungs-Export (wie die übrigen Keys), wird aber nicht an den Infoscreen
+  gespiegelt und nie im Klartext in der Weboberfläche angezeigt. Die Abfrage läuft per HTTP durchs LAN.

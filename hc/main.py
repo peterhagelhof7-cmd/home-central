@@ -23,11 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, device, net, ntfy, poller, telegram
+from . import config, device, meshcore, net, ntfy, poller, telegram
 from .sources import extra, kalender, muell, owm, simple
 from .tz import now
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -63,12 +63,14 @@ def make_pollers():
     P("kino", "Kino", extra.kino, 6 * 3600, retry=30 * 60)
     P("planes", "Flugzeuge (adsb.lol)", lambda: extra.planes(route_cap=3), 60, retry=60)
     P("space", "Nachtobjekte (N2YO/NASA)", extra.space, 2 * 3600, retry=15 * 60)
+    P("meshcore", "MeshCore-Gateway (Kanäle → Telegram)", meshcore.poll, 15, retry=60)
 
 
 # Welche Poller nach einer Einstellungsaenderung sofort neu laufen sollen.
 REFRESH_ON = {
     "owm_": ["owm"], "nina_": ["nina"], "fb_": ["fritzbox"], "muell_": ["muell"], "kino_": ["kino"],
     "planes_": ["planes", "space", "dwd"], "space_": ["space"], "n2yo_": ["space"], "nasa_": ["space"],
+    "mc_": ["meshcore"],
 }
 
 
@@ -190,10 +192,11 @@ async def settings_get(req: Request, msg: str = ""):
         "c": cfg, "slides": config.slide_catalog(), "termine": kalender.termine(), "bl": kalender.BL_NAMES,
         "catalog": muell.AWIDO_CATALOG, "msg": msg, "api_token": config.secret("api_token"),
         "host": req.url.hostname, "gw": simple.default_gateway(),
-        "has": {k: bool(str(cfg.get(k, "")).strip()) for k in ("owm_key", "n2yo_key", "nasa_key", "tg_token")}})
+        "has": {k: bool(str(cfg.get(k, "")).strip()) for k in ("owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key")},
+        "mc": meshcore.last, "mc_sel": meshcore.selected(), "mc_err": (poller.POLLERS["meshcore"].error if "meshcore" in poller.POLLERS else "")})
 
 
-SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token"}
+SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key"}
 SLIDE_KEY = re.compile(r"^sl_[a-z0-9_]{1,12}$")
 INT_LIMITS = {"brightness": (5, 100), "bl_floor": (0, 95), "slide_sec": (3, 120)}
 
@@ -207,8 +210,10 @@ async def settings_save(req: Request):
     for cb in str(form.get("_checkboxes", "")).split(","):
         if cb in config.DEFAULTS or SLIDE_KEY.match(cb):
             vals[cb] = "1" if form.get(cb) else "0"
+    if form.get("_mc_channels"):   # Kanal-Haken der MeshCore-Karte (Mehrfachauswahl)
+        vals["mc_channels"] = "\n".join(c for c in form.getlist("mc_ch") if isinstance(c, str) and c.strip())
     for k, v in form.items():
-        if k.startswith("_") or k not in config.DEFAULTS or k == "termine" or not isinstance(v, str):
+        if k.startswith("_") or k not in config.DEFAULTS or k in ("termine", "mc_channels") or not isinstance(v, str):
             continue
         v = v.strip()
         if k in SECRET_KEYS and not v:
@@ -364,6 +369,23 @@ async def ntfy_action(req: Request, action: str):
     return RedirectResponse(f"/settings?msg={quote(msg)}#ntfy", status_code=303)
 
 
+@app.post("/settings/meshcore/test")
+async def meshcore_test(req: Request):
+    """Verbindung zum Gateway pruefen: Kanaele lesen (ohne etwas weiterzuleiten)."""
+    if (r := need_login(req)):
+        return r
+    if not meshcore.base_url() or not str(config.get("mc_key")).strip():
+        msg = "Adresse und API-Schlüssel eintragen"
+    else:
+        try:
+            ch = await meshcore._get("/api/v1/channels")
+            meshcore.last.update(gateway=ch.get("gateway", ""), channels=[c.get("name", "") for c in ch.get("channels", [])])
+            msg = f"Verbunden mit {ch.get('gateway') or 'Gateway'}: {len(meshcore.last['channels'])} Kanäle"
+        except Exception as e:  # noqa: BLE001
+            msg = f"Fehler: {type(e).__name__}: {e or 'Gateway nicht erreichbar'}"[:200]
+    return RedirectResponse(f"/settings?msg={quote(msg)}#meshcore", status_code=303)
+
+
 @app.get("/api/awido")
 async def api_awido(req: Request, step: str = "", client: str = "", id: str = ""):
     if not logged_in(req):
@@ -452,7 +474,7 @@ def config_mirror() -> dict:
     sie im Geraet nie einen vorhandenen Key loeschen."""
     out = {}
     for k, v in config.all_values().items():
-        if k in MIRROR_SKIP or k.startswith(("sl_", "ntfy_")):
+        if k in MIRROR_SKIP or k.startswith(("sl_", "ntfy_", "mc_")):
             continue
         if k == "termine":
             v = json.dumps(v, ensure_ascii=False, separators=(",", ":"))
