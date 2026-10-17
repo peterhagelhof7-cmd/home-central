@@ -27,7 +27,7 @@ from . import config, device, meshcore, net, ntfy, poller, telegram
 from .sources import extra, kalender, muell, owm, simple
 from .tz import now
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 

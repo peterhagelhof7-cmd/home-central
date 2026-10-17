@@ -71,6 +71,11 @@ Gleicher Befehl wie bei der Installation, **ohne** Passwort-Argument – Einstel
 API-Token und Kopplungen in `/var/lib/home-central` bleiben erhalten. Der Dienst startet neu; der
 Infoscreen überbrückt die paar Sekunden mit seinen letzten Daten.
 
+> **Update auf 0.4.0:** Ortsbezogene Werte (Standort, Warnregion, Müll, Kino) haben keinen Standard
+> mehr. Wer sie bisher nie gespeichert hat, sieht nach dem Update „nicht eingerichtet“. Vorher prüfen,
+> ob sie in `/var/lib/home-central/config.json` stehen (`planes_lat`, `planes_lon`, `nina_ars`,
+> `muell_id` bzw. `muell_aw_*`, `kino_id`), sonst nach dem Update in den Einstellungen eintragen (3.3).
+
 ### 2.4 Passwort vergessen
 
 ```sh
