@@ -15,7 +15,7 @@ liefert es ihm aufbereitet als kompaktes JSON:
 |---|---|
 | Datenquellen | OpenWeatherMap, Spessartwetter, DWD (Bright Sky), BBK/NINA, Bitstamp, Fritzbox (UPnP), Müll (MyMüll **oder** AWIDO), Kino, Flugzeuge, Satelliten/Asteroiden, Feiertage, eigene Termine – gleiche Intervalle und Auswertung wie früher im ESP |
 | Telegram-Bot | komplett (Message Board, Kommandos, Warnungen, 6-Uhr-Bericht, Sonntags-Kino, Download-Wächter, „Infoscreen offline“) |
-| Weiterleitung an ntfy | Gruppennachrichten und Warnungen für Familienmitglieder ohne Telegram (nur empfangen, siehe 3.4) |
+| Weiterleitung an ntfy | Gruppennachrichten und Warnungen für Familienmitglieder ohne Telegram (nur empfangen, siehe 3.5) |
 | Einstellungen | alles außer WLAN/IP des Infoscreens, inkl. Anzeige (Helligkeit, Slides, Intervall, Drehung) |
 | Uhrzeit | NTP-Server (chrony) für das LAN |
 | Auffindbarkeit | mDNS-Dienst `_home-central._tcp` (Avahi) |
@@ -24,8 +24,10 @@ Der Infoscreen (Firmware ≥ v1.3.0) findet home-central selbst, koppelt sich na
 läuft dann im **Client-Modus**. Fällt home-central aus, arbeitet er mit den letzten Daten weiter und
 schaltet nach 30 min in den Notbetrieb (Details im Admin-Guide des Infoscreens, Abschnitt 2.4).
 
-**Referenzsystem:** Debian 13 (trixie) als VM unter Proxmox (2 vCPU, 4 GB RAM, 30 GB), feste IP
-`192.168.79.1`. Der Dienst selbst braucht ~30–40 MB RAM.
+**Referenzsystem:** Debian 13 (trixie) als VM unter Proxmox (2 vCPU, 4 GB RAM, 30 GB) mit fester IP.
+Der Dienst selbst braucht ~30–40 MB RAM; ein Raspberry Pi mit Debian/Raspberry Pi OS (trixie) genügt.
+
+**Lizenz:** GPL-3.0 (siehe [LICENSE](../LICENSE)).
 
 ---
 
@@ -53,14 +55,15 @@ ssh <user>@<host> 'sudo sh ~/hc-src/deploy/install.sh <web-passwort>'
    python3-multipart python3-itsdangerous chrony avahi-daemon` (keine pip-Pakete).
 2. Systembenutzer `home-central`, Datenverzeichnis `/var/lib/home-central` (0750).
 3. Code nach `/opt/home-central` (die vorige Version bleibt als `/opt/home-central.old`).
-4. chrony als LAN-Zeitserver (`/etc/chrony/conf.d/home-central.conf`, `allow 192.168.79.0/24`,
+4. chrony als LAN-Zeitserver (`/etc/chrony/conf.d/home-central.conf`, `allow <LAN>/24`,
    `local stratum 10` → liefert Zeit auch bei Internet-Ausfall).
 5. Avahi-Dienst `/etc/avahi/services/home-central.service`.
 6. systemd-Dienst `home-central` (Port 80 über `CAP_NET_BIND_SERVICE`, ohne root; `ProtectSystem=strict`).
 7. Mit Argument: Web-Passwort setzen.
 
-> **Netz anpassen:** Liegt das LAN nicht in `192.168.79.0/24`, die `allow`-Zeile in
-> `deploy/chrony-lan.conf` vor der Installation ändern.
+> **Netz anpassen:** In `deploy/chrony-lan.conf` steht als Beispiel `allow 192.168.79.0/24`. Vor der
+> Installation auf das eigene LAN ändern (z. B. `allow 192.168.178.0/24`), sonst bekommt der
+> Infoscreen keine Zeit von home-central.
 
 ### 2.3 Update
 
@@ -79,7 +82,7 @@ cd /opt/home-central && sudo -u home-central env HC_DATA_DIR=/var/lib/home-centr
 
 ## 3. Weboberfläche
 
-Erreichbar unter `http://<host>` (z. B. `http://192.168.79.1` oder `http://home-central.local`).
+Erreichbar unter `http://<host>` (IP-Adresse des Servers oder `http://home-central.local`).
 Anmeldung mit dem Web-Passwort; nach 5 Fehlversuchen ist das Login 5 min gesperrt.
 **Startpasswort nach der Installation sofort ändern** (Einstellungen → System).
 
@@ -110,24 +113,43 @@ Anmeldung mit dem Web-Passwort; nach 5 Fehlversuchen ist das Login 5 min gesperr
 | **Nachtobjekte** | N2YO-Key, NASA-Key (ohne = DEMO_KEY), Beobachterhöhe |
 | **Warnungen** | Regionalschlüssel (ARS) für BBK/NINA |
 | **Müll** | MyMüll-ID **oder** AWIDO mit Auswahl Mandant → Gemeinde → Ortsteil/Straße → Hausnummer; Wechsel greift sofort (kein Neustart) |
-| **Kino** | Kino-ID |
+| **Kino** | Kino-ID (siehe 3.3) |
 | **Feiertage** | Bundesland |
 | **Fritzbox** | Adresse (leer = Gateway von home-central) |
 | **Telegram** | Bot-Token (leer = behalten), Gruppen-Chat-ID |
-| **Weiterleitung an ntfy** | Aktiv, Gruppennachrichten, Bot-Antworten/Berichte, Warnungen, Server, Kanal; **Testnachricht senden**, **Neuen Kanal erzeugen** (siehe 3.4) |
+| **Weiterleitung an ntfy** | Aktiv, Gruppennachrichten, Bot-Antworten/Berichte, Warnungen, Server, Kanal; **Testnachricht senden**, **Neuen Kanal erzeugen** (siehe 3.5) |
 | **Infoscreen-Anbindung** | Server-Adresse, API-Token, NTP-Server; **Neuen API-Token erzeugen** (gekoppelte Geräte holen ihn automatisch) |
 | **System** | Import des Infoscreen-Exports, Export der eigenen Einstellungen, Log-Download, Passwort ändern |
 
 Nach dem Speichern werden die betroffenen Quellen sofort neu abgerufen.
 
-### 3.3 Einstellungen vom Infoscreen übernehmen
+### 3.3 Ersteinrichtung: Ort und Region
+
+Ortsbezogene Werte haben **keinen Standard** – bis sie eingetragen sind, steht die Quelle in der Übersicht
+rot mit „nicht eingerichtet: …“. Wer vorher den Infoscreen im Direkt-Modus genutzt hat, übernimmt alles
+per Import (3.4).
+
+| Wert | Karte | Wo finde ich ihn? |
+|---|---|---|
+| **Standort** (Breite/Länge, Dezimalgrad) | Standort & Flugzeuge | Karten-App: Rechtsklick/langes Tippen auf den Ort → Koordinaten, z. B. `49.79` / `9.95`. Wird für Wetter (ohne Ortsnamen), DWD-Warnungen, Flugzeuge und Satelliten genutzt. |
+| **Wetter-Ort** (optional) | Wetter | Ortsname für OpenWeatherMap, z. B. `Würzburg,DE`; leer = Standort |
+| **Warnregion (ARS)** | Warnungen | 12-stelliger Amtlicher Regionalschlüssel. Für einen ganzen Landkreis: 5-stelliger Kreisschlüssel + `0000000` (z. B. `096790000000` = Landkreis Würzburg). Kreis- und Gemeindeschlüssel stehen im Gemeindeverzeichnis von Destatis. |
+| **Müll – MyMüll** | Müll | Ortsteil-ID: Liste aller Orte als JSON unter `https://mymuell.jumomind.com/mmapp/api.php?r=cities` (Feld `id`). Die Termine lassen sich mit `…api.php?r=dates&city_id=<id>&area_id=<id>` prüfen. |
+| **Müll – AWIDO** | Müll | Datenquelle „Abfall-App (AWIDO)“, dann Mandant → Gemeinde → Ortsteil/Straße → Hausnummer wählen; die ID setzt die Auswahl. Fehlt der Mandant: Kürzel aus der Adresse des Web-Abfuhrkalenders (`awido.cubefour.de/Customer/<kürzel>/…`). |
+| **Kino** (optional) | Kino | ID des Kinos im kino.de-Backend. Prüfen: `https://kntkapi.apps.stroeermb.de/api/cinema/<id>/` im Browser öffnen – `name` zeigt das Kino. Leer = Bot-Befehl `kino` meldet „nicht eingerichtet“. |
+| **Feiertage** | Feiertage | Bundesland (Standard Bayern) |
+
+Die Slide **Spessartwetter** zeigt eine feste regionale Wetterstation (spessartwetter.de, im
+Spessart). Außerhalb der Region in der Karte *Anzeige* abwählen.
+
+### 3.4 Einstellungen vom Infoscreen übernehmen
 
 Im Infoscreen (Direkt-Modus) unter **System → Einstellungen herunterladen** die JSON-Datei holen und
 in home-central unter **System → Importieren** hochladen. Übernommen wird alles außer `wifi_*` und
 `dev_name`. **Telegram-Token:** Läuft der Bot noch im Infoscreen, den Token erst nach der Umstellung
 auf den Client-Modus in home-central eintragen – sonst laufen zwei Bots mit demselben Token.
 
-### 3.4 Weiterleitung an ntfy (Familie ohne Telegram)
+### 3.5 Weiterleitung an ntfy (Familie ohne Telegram)
 
 Telegram ist im Play Store erst ab 18 freigegeben. Damit Kinder trotzdem mitbekommen, was in der
 Gruppe passiert, leitet home-central Nachrichten an einen Kanal von [ntfy](https://ntfy.sh) weiter.
@@ -157,7 +179,7 @@ Download-Problem, Infoscreen offline/online, Stack-Daten). Warnungen kommen nur 
 
 **Voraussetzung:** Der Bot muss alle Gruppennachrichten sehen dürfen (Datenschutz-Modus aus:
 @BotFather → `/setprivacy` → Disable, danach den Bot einmal aus der Gruppe entfernen und neu
-hinzufügen). Beim Bot @<botname> ist das bereits so.
+hinzufügen).
 
 **Wichtig zum Kanalnamen:** Auf ntfy.sh ist ein Kanal öffentlich, aber nur über seinen Namen
 auffindbar. Wer den Namen kennt, kann **mitlesen und selbst Nachrichten hineinschicken**. Deshalb:
@@ -167,7 +189,7 @@ erzeugen** und auf allen Geräten neu abonnieren. Die Nachrichten laufen über d
 Der Kanalname steht in `config.json` und im Einstellungs-Export, er wird nicht an den Infoscreen
 gespiegelt.
 
-### 3.5 MeshCore-Kanäle an Telegram (ab 0.3.0)
+### 3.6 MeshCore-Kanäle an Telegram (ab 0.3.0)
 
 home-central kann Nachrichten aus Kanälen eines **esp-meshcore-gateway** (Firmware ab 0.10.0) in die
 Telegram-Gruppe weiterleiten, z. B. die Alarme der Überwachung. Das Gateway muss von home-central aus
@@ -265,7 +287,7 @@ Infoscreen im Direkt-Modus, Notbetrieb)? Im Log nach `getUpdates`-Warnungen such
 
 **ntfy: nichts kommt an.** Weiterleitung aktiv und Häkchen gesetzt? **Testnachricht senden** – meldet
 die Seite einen Fehler, steht der Grund im Log (`ntfy fehlgeschlagen: …`). Kommt der Test an, aber keine
-Gruppennachrichten: Datenschutz-Modus des Bots prüfen (siehe 3.4). Im Handy ntfy vom
+Gruppennachrichten: Datenschutz-Modus des Bots prüfen (siehe 3.5). Im Handy ntfy vom
 Akku-Sparen ausnehmen, sonst kommen Benachrichtigungen verspätet.
 
 **MeshCore: nichts kommt an.** Übersicht → Zeile „MeshCore-Gateway“ zeigt den letzten Fehler.
@@ -292,7 +314,8 @@ Route). Kanal angehakt? Kanalnamen müssen exakt wie im Gateway heißen; ein umb
 - Keys, Token und Kopplungen liegen nur in `/var/lib/home-central` (0600, Benutzer `home-central`),
   nie im Repo.
 - Kein HTTPS: für das Heimnetz gedacht, nicht ins Internet freigeben.
-- ntfy-Weiterleitung: Wer den Kanalnamen kennt, kann lesen und schreiben (siehe 3.4).
-- MeshCore-Gateway: Der API-Schlüssel erlaubt nur das Lesen von Kanälen und Nachrichten. Er steht in
+- ntfy-Weiterleitung: Wer den Kanalnamen kennt, kann lesen und schreiben (siehe 3.5).
+- MeshCore-Gateway: Der API-Schlüssel erlaubt das Lesen von Kanälen und Nachrichten und – nur wenn im
+  Gateway freigegeben – das Senden in genau einen Kanal (max. 10 pro Stunde). Er steht in
   `config.json` und im Einstellungs-Export (wie die übrigen Keys), wird aber nicht an den Infoscreen
   gespiegelt und nie im Klartext in der Weboberfläche angezeigt. Die Abfrage läuft per HTTP durchs LAN.

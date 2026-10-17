@@ -57,9 +57,10 @@ def gust_kmh(d: dict | None) -> float:
 
 # --- DWD-Warnungen ueber Bright Sky -------------------------------------------
 async def dwd() -> dict:
-    j = await net.get_json("https://api.brightsky.dev/alerts",
-                           params={"lat": config.get("planes_lat") or "",
-                                   "lon": config.get("planes_lon") or ""})
+    lat, lon = str(config.get("planes_lat")).strip(), str(config.get("planes_lon")).strip()
+    if not lat or not lon:
+        raise ValueError("nicht eingerichtet: Standort (Breite/Laenge) fehlt (Einstellungen)")
+    j = await net.get_json("https://api.brightsky.dev/alerts", params={"lat": lat, "lon": lon})
     alerts = j.get("alerts") or []
     a0 = alerts[0] if alerts else {}
     return {"valid": True, "count": len(alerts),
@@ -72,7 +73,9 @@ _SEV = {"Extreme": 4, "Severe": 3, "Moderate": 2, "Minor": 1}
 
 
 async def nina() -> dict:
-    ars = str(config.get("nina_ars")).strip() or ""
+    ars = str(config.get("nina_ars")).strip()
+    if not ars:
+        raise ValueError("nicht eingerichtet: NINA-Regionalschluessel (ARS) fehlt (Einstellungen)")
     arr = await net.get_json(f"https://warnung.bund.de/api31/dashboard/{ars}.json")
     count, best, out = 0, -1, {"headline": "", "severity": "", "provider": ""}
     for e in arr if isinstance(arr, list) else []:

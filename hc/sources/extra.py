@@ -14,7 +14,9 @@ log = logging.getLogger("extra")
 
 # --- Kino ---------------------------------------------------------------------
 async def kino() -> dict:
-    cid = str(config.get("kino_id")).strip() or ""
+    cid = str(config.get("kino_id")).strip()
+    if not cid:
+        raise ValueError("nicht eingerichtet: Kino-ID fehlt (Einstellungen)")
     j = await net.get_json(f"https://kntkapi.apps.stroeermb.de/api/cinema/{cid}/")
     movies = {}
     for m in j.get("movies") or []:
@@ -78,8 +80,11 @@ _routes_day = ""
 
 
 def _loc():
-    return (str(config.get("planes_lat")).strip() or "",
-            str(config.get("planes_lon")).strip() or "")
+    """Standort (Breite/Laenge) aus den Einstellungen; ohne ihn kein Abruf."""
+    lat, lon = str(config.get("planes_lat")).strip(), str(config.get("planes_lon")).strip()
+    if not lat or not lon:
+        raise ValueError("nicht eingerichtet: Standort (Breite/Laenge) fehlt (Einstellungen)")
+    return lat, lon
 
 
 def _hav_nm(lat1, lon1, lat2, lon2):
@@ -157,7 +162,10 @@ async def _passes() -> dict:
     key = str(config.get("n2yo_key")).strip()
     if not key:
         return {"has_key": False, "valid": False, "count": 0, "p": []}
-    lat, lon = _loc()
+    try:
+        lat, lon = _loc()
+    except ValueError:   # ohne Standort keine Ueberfluege, NEOs laufen trotzdem
+        return {"has_key": True, "valid": False, "count": 0, "p": []}
     alt = str(config.get("space_alt")).strip() or "200"
     out, any_ok = [], False
     for sid in CURATED:

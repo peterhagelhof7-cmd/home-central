@@ -13,7 +13,6 @@ from ..tz import TZ
 
 CUR_URL = "https://api.openweathermap.org/data/2.5/weather"
 FC_URL = "https://api.openweathermap.org/data/2.5/forecast"
-DEFAULT_LOC = {"lat": "", "lon": ""}
 FC_EVERY_S = 3 * 3600
 WD = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
@@ -21,8 +20,14 @@ _state = {"cur": None, "fc": None, "fc_ts": 0.0}
 
 
 def _loc_params() -> dict:
+    """Ortsname, sonst der allgemeine Standort (Breite/Laenge)."""
     loc = str(config.get("owm_loc")).strip()
-    return {"q": loc} if loc else dict(DEFAULT_LOC)
+    if loc:
+        return {"q": loc}
+    lat, lon = str(config.get("planes_lat")).strip(), str(config.get("planes_lon")).strip()
+    if not lat or not lon:
+        raise ValueError("nicht eingerichtet: Wetter-Ort oder Standort fehlt (Einstellungen)")
+    return {"lat": lat, "lon": lon}
 
 
 def _iround(v: float) -> int:

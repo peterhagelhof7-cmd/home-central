@@ -28,6 +28,7 @@ DEFAULTS = {
     **{f"sl_{sid}": "1" for sid, _ in SLIDES},
     # Datenquellen
     "owm_key": "", "owm_loc": "",
+    # Ortsbezogene Werte haben keinen Standard: jede Installation traegt ihren Ort ein
     "nina_ars": "",
     "fb_host": "",
     "muell_src": "mymuell", "muell_id": "",

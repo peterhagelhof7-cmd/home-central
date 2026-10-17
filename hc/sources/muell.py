@@ -46,7 +46,9 @@ def awido_valid(client: str, oid: str) -> bool:
 
 
 async def _mymuell(today: str) -> list[dict]:
-    mid = str(config.get("muell_id")).strip() or ""
+    mid = str(config.get("muell_id")).strip()
+    if not mid:
+        raise ValueError("nicht eingerichtet: MyMüll-Ortsteil-ID fehlt (Einstellungen)")
     arr = await net.get_json("https://mymuell.jumomind.com/mmapp/api.php",
                              params={"r": "dates", "city_id": mid, "area_id": mid})
     out = [{"day": e["day"], "title": e.get("title", "")} for e in arr

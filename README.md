@@ -13,17 +13,20 @@ Kopplung, Betrieb, Fehlersuche).
 - **Telegram-Bot** komplett (Message Board, @-Kommandos, Warnungen, 6-Uhr-Bericht, Sonntags-Kino,
   Download-Wächter, Meldung wenn der Infoscreen offline geht)
 - **Weiterleitung an ntfy** (ntfy.sh): Gruppennachrichten und Warnungen für Familienmitglieder ohne
-  Telegram – reine Empfangs-App ohne Konto/Chat (Admin-Guide 3.4)
+  Telegram – reine Empfangs-App ohne Konto/Chat (Admin-Guide 3.5)
 - **MeshCore-Kanäle → Telegram**: Nachrichten aus gewählten Kanälen eines
   [esp-meshcore-gateway](https://github.com/peterhagelhof7-cmd/esp-meshcore-gateway) (ab 0.10.0, Kanal-API
   mit API-Schlüssel) in die Telegram-Gruppe, optional auch an ntfy; umgekehrt Warnungen (DWD, NINA/KATWARN,
-  Windböen) in einen freigegebenen Mesh-Kanal (Admin-Guide 3.5)
+  Windböen) in einen freigegebenen Mesh-Kanal (Admin-Guide 3.6)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
   **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
 - **NTP-Server** (chrony) für das LAN, **mDNS-Ankündigung** (Avahi), damit der Infoscreen den Server
   selbst findet; Kopplung neuer Infoscreens per Freigabe in der Weboberfläche
 - **Ausfallsicherheit** für den Infoscreen: Einstellungs-Spiegel (`/api/v1/config`), dort zusätzlich
   Daten-Cache und automatischer Notbetrieb (Firmware ≥ v1.3.1)
+
+Ort und Region (Standort, Warnregion, Müll, Kino) haben keinen Standard und werden nach der Installation
+eingetragen – wo man die Werte findet, steht im Admin-Guide, Abschnitt 3.3.
 
 ## Installation (Debian 13)
 
@@ -69,3 +72,8 @@ Die Datenfelder entsprechen den C-Strukturen der Firmware (`owm_data_t`, `planes
   hier; im Notbetrieb (home-central > 30 min weg) übernimmt der Infoscreen.
 - Entkoppeln eines Infoscreens erneuert den API-Token; weiterhin gekoppelte Geräte holen ihn automatisch.
 - Startpasswort nach der Installation in der Weboberfläche ändern (Einstellungen → System).
+- Für das Heimnetz gedacht (HTTP ohne TLS) – nicht ins Internet freigeben.
+
+## Lizenz
+
+GPL-3.0, siehe [LICENSE](LICENSE).

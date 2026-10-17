@@ -57,7 +57,7 @@
   <label>L&auml;nge (lon)</label><input type="text" name="planes_lon" value="{{ c.planes_lon }}" placeholder="z.B. 9.95">
   <label>Flugzeug-Radius (Seemeilen, max. 250)</label><input type="text" name="planes_radius" value="{{ c.planes_radius }}">
   <button type="submit">Speichern</button>
-  <div class="st">Flugzeuge: adsb.lol, Routen von adsbdb.com (ohne Key).</div>
+  <div class="st">Dezimalgrad, z. B. aus der Karten-App (Rechtsklick → Koordinaten). Flugzeuge: adsb.lol, Routen von adsbdb.com (ohne Key).</div>
 {% endcall %}
 
 {% call card("nacht", "Nachtobjekte", "Satelliten (N2YO) + Asteroiden (NASA)") %}
@@ -71,9 +71,9 @@
 
 {% call card("warnungen", "Warnungen", "Katastrophenschutz (BBK/NINA)") %}
   <label>Warnregion (Amtlicher Regionalschl&uuml;ssel, 12-stellig)</label>
-  <input type="text" name="nina_ars" value="{{ c.nina_ars }}" placeholder="ARS">
+  <input type="text" name="nina_ars" value="{{ c.nina_ars }}" placeholder="z.B. 096790000000">
   <button type="submit">Speichern</button>
-  <div class="st">DWD-Wetterwarnungen kommen zus&auml;tzlich von Bright Sky f&uuml;r den Standort.</div>
+  <div class="st">Kreis-ARS: 5 Stellen Kreisschl&uuml;ssel + 0000000 (z. B. 096790000000 = Landkreis W&uuml;rzburg), zu finden in der Gemeindeliste von Destatis. DWD-Wetterwarnungen kommen zus&auml;tzlich von Bright Sky f&uuml;r den Standort.</div>
 {% endcall %}
 
 <div class="card" id="muell"><h2>M&uuml;ll</h2><div class="sub">Abfuhrtermine &ndash; Datenquelle</div>
@@ -86,12 +86,11 @@
   <div id="mmy">
     <label>Ortsteil-ID (MyM&uuml;ll)</label>
     <input type="text" name="muell_id" value="{{ c.muell_id }}" placeholder="Ortsteil-ID">
-    <div class="st">Ortsteil-ID aus der MyM&uuml;ll-App.
-      <br>
-      </div>
+    <div class="st">Die ID steht in der MyM&uuml;ll-App bzw. auf mymuell.jumomind.com beim eigenen Ortsteil
+      (siehe Admin-Guide). Manche Landkreise wechseln zu AWIDO &ndash; dann oben umstellen.</div>
   </div>
   <div id="maw">
-    <div class="st">Aktuell: {{ c.muell_aw_lbl }}</div>
+    <div class="st">Aktuell: {{ c.muell_aw_lbl or "noch nicht gew&auml;hlt" }}</div>
     <label>Mandant (Landkreis / Stadt)</label>
     <select id="mcl" onchange="mCl(0)">
       {% set known = namespace(v=false) %}
@@ -100,7 +99,7 @@
       {% endfor %}
       <option value="_" {{ 'selected' if not known.v }}>Anderer Mandant (K&uuml;rzel eingeben) &hellip;</option>
     </select>
-    <input type="text" id="mclx" value="{{ '' if known.v else c.muell_aw_cl }}" placeholder="K&uuml;rzel, z.B. lra-ab"
+    <input type="text" id="mclx" value="{{ '' if known.v else c.muell_aw_cl }}" placeholder="K&uuml;rzel, z.B. ffb"
       onchange="mCl(0)" {{ 'style=display:none' if known.v }}>
     <label>Gemeinde</label><select id="mpl" onchange="mPl(0)"></select>
     <label>Ortsteil / Stra&szlig;e</label><select id="mst" onchange="mSt()"></select>
@@ -116,9 +115,9 @@
 </form></div>
 
 {% call card("kino", "Kino", "Programm für den Bot (kino.de)") %}
-  <label>Kino-ID</label><input type="text" name="kino_id" value="{{ c.kino_id }}">
+  <label>Kino-ID</label><input type="text" name="kino_id" value="{{ c.kino_id }}" placeholder="Kino-ID">
   <button type="submit">Speichern</button>
-  <div class="st">Kino-ID aus dem kino.de-Backend.</div>
+  <div class="st">Die ID steht in der kino.de-Adresse des Kinos (siehe Admin-Guide). Leer = Kino-Befehl aus.</div>
 {% endcall %}
 
 {% call card("feiertage", "Feiertage", "Gesetzliche Feiertage im Terminplan") %}
