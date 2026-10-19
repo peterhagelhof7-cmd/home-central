@@ -235,6 +235,27 @@ einen MeshCore-Kanal schicken. So erreichen sie auch Leute ohne Internet.
 - Was home-central selbst ins Mesh schickt, wird beim Weiterleiten Mesh → Telegram übersprungen, damit
   Warnungen nicht doppelt in der Gruppe landen.
 
+### 3.7 Heizung über esp-p4d (ab 0.5.0)
+
+Das **esp-p4d** (Firmware ab 0.2.0) liest eine Fröling-Heizung (Lambdatronic S3200) über deren
+Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung und Werte.
+
+1. Im esp-p4d: **Einstellungen → API für home-central**, Schlüssel kopieren. Unter **Werte** die Werte
+   anhaken, die home-central bekommen soll (ohne Haken: alle).
+2. In home-central: **Einstellungen → Heizung (esp-p4d)**: Adresse und Schlüssel eintragen,
+   **Abruf aktiv**, speichern, **Verbindung testen**.
+
+- Als Adresse die **IP** nehmen (im Router fest vergeben). `esp-p4d.local` funktioniert auf dem Server
+  nur, wenn dort mDNS-Namensauflösung (`libnss-mdns`) eingerichtet ist.
+- Abfrage alle 30 s. Die Startseite zeigt eine Karte **Heizung** mit Zustand, Störung und Werten.
+- Telegram: **`@bot heizung`** antwortet mit Zustand, Störung und den Werten (höchstens 30).
+- **Meldungen** (in die Telegram-Gruppe, zusätzlich an ntfy, wenn dort Warnungen an sind):
+  - **Störung**: Meldet der Kessel eine Störung, kommt sie einmal; eine andere Störung wird neu gemeldet,
+    danach „Heizungsstörung behoben“.
+  - **ohne Daten**: Ist das esp-p4d länger als 10 min nicht erreichbar oder antwortet der Kessel dem
+    esp-p4d so lange nicht, kommt eine Meldung; wenn wieder Daten kommen, eine Entwarnung.
+- Die Heizungs-Einstellungen gehen nicht in die Einstellungs-Kopie für den Infoscreen.
+
 ---
 
 ## 4. Infoscreen koppeln

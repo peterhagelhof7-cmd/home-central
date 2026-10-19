@@ -10,7 +10,7 @@ import time
 from collections import deque
 from datetime import date
 
-from . import config, device, meshcore, net, ntfy, poller
+from . import config, device, heizung, meshcore, net, ntfy, poller
 from .sources import extra, kalender, simple
 from .tz import now, today_iso
 
@@ -324,6 +324,14 @@ async def cmd_kurse():
                f"1 EUR: {k['eur_usd']:.4f} $ {arrow(k['eur_chg'], 0.05)} {k['eur_chg']:+.2f} %")
 
 
+async def cmd_heizung():
+    if heizung.enabled():
+        await poller.refresh_now("heizung")
+    p = poller.POLLERS.get("heizung")
+    age = int(time.time() - p.ok_ts) if p and p.ok_ts else -1
+    await send(heizung.build_text(poller.data("heizung"), age, p.error if p else ""))
+
+
 async def send_help():
     await send(
         f"\U0001F916 Kommandos (@{_st['botname'] or 'bot'} ...):\n"
@@ -340,6 +348,7 @@ async def send_help():
         "• alarm – aktive Warnungen (DWD/NINA/Böen)\n"
         "• nacht – sichtbare Satelliten + Asteroiden\n"
         "• kurse – BTC und EUR-USD (24h-Trend)\n"
+        "• heizung – Zustand, Störung und Werte der Heizung (esp-p4d)\n"
         "• kino – aktuelles Kinoprogramm\n"
         "• kino preview – Programm ab nächster Woche\n"
         "• neu termin JJJJ-MM-TT Text – Termin anlegen")
@@ -369,6 +378,8 @@ async def handle_command(text: str):
         return await cmd_nacht()
     if "kurse" in low:
         return await cmd_kurse()
+    if "heizung" in low:
+        return await cmd_heizung()
     if "reboot" in low:
         device.queue_cmd("reboot")
         return await send("\U0001F504 Infoscreen startet beim nächsten Abruf neu …")
@@ -465,6 +476,33 @@ async def _warn(kind: str, key: str, text: str):
             _warned[("mesh", kind)] = key
 
 
+async def _clear(kind: str, text: str):
+    """Entwarnung dort senden, wo vorher gewarnt wurde."""
+    if _warned.pop(("tg", kind), None) is not None and configured():
+        await send(text, fwd=False)
+    if _warned.pop(("ntfy", kind), None) is not None and ntfy.enabled():
+        await ntfy.warning(text)
+    _warned.pop(("mesh", kind), None)
+
+
+async def _check_heizung():
+    if not heizung.enabled():
+        return
+    j = poller.data("heizung") or {}
+    if config.get("hz_push_err") == "1":
+        err = j.get("error")
+        if err:
+            await _warn("hz_err", err, f"\U0001F525\U0001F6A8 Heizungsstörung: {err}")
+        elif j:
+            await _clear("hz_err", "✅ Heizungsstörung behoben.")
+    if config.get("hz_push_off") == "1":
+        reason = heizung.offline_reason()
+        if reason:
+            await _warn("hz_off", "on", f"⚠ Heizung: {reason} (seit über {heizung.OFFLINE_AFTER // 60} min).")
+        else:
+            await _clear("hz_off", "✅ Heizung: Daten kommen wieder.")
+
+
 async def _check_pushes():
     d = poller.data("dwd") or {}
     if d.get("valid") and d.get("count") and d.get("headline"):
@@ -481,6 +519,7 @@ async def _check_pushes():
             _warned.pop(("tg", "boe"), None)
             _warned.pop(("ntfy", "boe"), None)
             _warned.pop(("mesh", "boe"), None)
+    await _check_heizung()
 
 
 async def _check_schedules():

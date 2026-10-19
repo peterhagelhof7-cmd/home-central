@@ -208,6 +208,25 @@
     war home-central länger weg, kommt ein Hinweis „Nachrichten verpasst“. Weitergeleitet wird in die Gruppe aus der Telegram-Karte.</div>
 </div>
 
+<div class="card" id="heizung"><h2>Heizung (esp-p4d)</h2><div class="sub">Fröling-Heizung über das esp-p4d an COM1 &ndash; Werte, Telegram-Befehl &bdquo;heizung&ldquo; und Meldungen</div>
+<form method="post" action="/settings/save"><input type="hidden" name="_card" value="heizung">
+  <label class="cb"><input type="checkbox" name="hz_on" value="1" {{ 'checked' if c.hz_on == '1' }}> Abruf aktiv</label>
+  <label>Adresse des esp-p4d</label>
+  <input type="text" name="hz_url" value="{{ c.hz_url }}" placeholder="http://192.168.1.50 (feste IP im Router empfohlen)">
+  <label>API-Schlüssel {% if has.hz_key %}(gespeichert, leer lassen = behalten){% endif %}</label>
+  <input type="password" name="hz_key" value="" autocomplete="new-password" placeholder="{{ '••••••••' if has.hz_key else 'im esp-p4d: Einstellungen → API für home-central' }}">
+  <label>Meldungen an Telegram (und ntfy, wenn dort Warnungen an sind)</label>
+  <label class="cb"><input type="checkbox" name="hz_push_err" value="1" {{ 'checked' if c.hz_push_err == '1' }}> Störung der Heizung (und Entwarnung)</label>
+  <label class="cb"><input type="checkbox" name="hz_push_off" value="1" {{ 'checked' if c.hz_push_off == '1' }}> Heizung länger als 10 min ohne Daten (esp-p4d oder Kessel stumm)</label>
+  <input type="hidden" name="_checkboxes" value="hz_on,hz_push_err,hz_push_off">
+  <button type="submit">Speichern</button>
+</form>
+  <form method="post" action="/settings/heizung/test"><button class="grey" type="submit">Verbindung testen</button></form>
+  {% if hz_err %}<div class="st err">Letzter Abruf: {{ hz_err }}</div>{% elif hz.name %}<div class="st">esp-p4d „{{ hz.name }}“ · {{ hz.count }} Werte</div>{% endif %}
+  <div class="st">Abfrage alle 30 s. Welche Werte ankommen, wird im esp-p4d unter &bdquo;Werte&ldquo; per Haken festgelegt (ohne Haken: alle).
+    Für die Adresse besser die IP nehmen: <code>esp-p4d.local</code> funktioniert auf dem Server nur, wenn mDNS-Namensauflösung eingerichtet ist.</div>
+</div>
+
 <div class="card" id="anbindung"><h2>Infoscreen-Anbindung</h2><div class="sub">im Infoscreen unter &bdquo;Datenquelle&ldquo; eintragen</div>
   <label>Server</label><code>http://{{ host }}</code>
   <label>API-Token</label><code>{{ api_token }}</code>

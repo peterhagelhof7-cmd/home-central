@@ -33,6 +33,24 @@
   </details>{% endif %}
 </div>
 
+{% if hz.on %}
+<div class="card">
+  <h2>Heizung</h2>
+  {% set j = hz.data %}
+  <div class="sub">{% if hz.offline %}<span class="dot bad"></span>{{ hz.offline }}{% elif hz.error %}<span class="dot bad"></span>esp-p4d nicht erreichbar{% elif j and j.online %}<span class="dot ok"></span>verbunden{% elif j %}<span class="dot bad"></span>Kessel antwortet nicht (COM1){% else %}<span class="dot idle"></span>noch keine Daten{% endif %}
+    &middot; letzter Abruf {{ hz.ago }}</div>
+  {% if j %}
+  <table>
+    {% if j.mode or j.state %}<tr><th>Zustand</th><td>{{ [j.mode, j.state] | select | join(' / ') }}</td></tr>{% endif %}
+    <tr><th>Störung</th><td>{% if j.error %}<span class="err">{{ j.error }}</span>{% else %}keine{% endif %}</td></tr>
+    {% for v in j['values'][:30] %}<tr><th>{{ v.n or v.k }}</th><td>{{ hz.fmt(v) }}</td></tr>{% endfor %}
+  </table>
+  {% if j['values'] | length > 30 %}<div class="st">… und {{ j['values'] | length - 30 }} weitere – Auswahl im esp-p4d unter „Werte“.</div>{% endif %}
+  {% endif %}
+  {% if hz.error %}<div class="st err">{{ hz.error }}</div>{% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Datenquellen</h2><div class="sub">Abrufe f&uuml;r den Infoscreen</div>
   <table>

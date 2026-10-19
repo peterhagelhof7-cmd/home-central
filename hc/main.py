@@ -23,11 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, device, meshcore, net, ntfy, poller, telegram
+from . import config, device, heizung, meshcore, net, ntfy, poller, telegram
 from .sources import extra, kalender, muell, owm, simple
 from .tz import now
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -64,13 +64,14 @@ def make_pollers():
     P("planes", "Flugzeuge (adsb.lol)", lambda: extra.planes(route_cap=3), 60, retry=60)
     P("space", "Nachtobjekte (N2YO/NASA)", extra.space, 2 * 3600, retry=15 * 60)
     P("meshcore", "MeshCore-Gateway (Kanäle → Telegram)", meshcore.poll, 15, retry=60)
+    P("heizung", "Heizung (esp-p4d)", heizung.poll, 30, retry=60)
 
 
 # Welche Poller nach einer Einstellungsaenderung sofort neu laufen sollen.
 REFRESH_ON = {
     "owm_": ["owm"], "nina_": ["nina"], "fb_": ["fritzbox"], "muell_": ["muell"], "kino_": ["kino"],
     "planes_": ["planes", "space", "dwd"], "space_": ["space"], "n2yo_": ["space"], "nasa_": ["space"],
-    "mc_": ["meshcore"],
+    "mc_": ["meshcore"], "hz_": ["heizung"],
 }
 
 
@@ -177,10 +178,13 @@ async def index(req: Request):
         return r
     sources = [{**p.status(), "ago": _ago(p.ok_ts)} for p in poller.POLLERS.values()]
     rep = device.report()
+    hzp = poller.POLLERS["heizung"]
+    hz = {"on": heizung.enabled(), "data": hzp.data, "ago": _ago(hzp.ok_ts), "error": hzp.error,
+          "offline": heizung.offline_reason(), "fmt": heizung.fmt_value}
     return templates.TemplateResponse(req, "index.html", {
         "sources": sources, "dev": rep, "dev_online": device.online(), "dev_seen": _ago(device.last_seen()),
         "tg_ok": telegram.configured(), "version": __version__,
-        "pending": device.pending(), "paired": device.paired()})
+        "pending": device.pending(), "paired": device.paired(), "hz": hz})
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -192,11 +196,12 @@ async def settings_get(req: Request, msg: str = ""):
         "c": cfg, "slides": config.slide_catalog(), "termine": kalender.termine(), "bl": kalender.BL_NAMES,
         "catalog": muell.AWIDO_CATALOG, "msg": msg, "api_token": config.secret("api_token"),
         "host": req.url.hostname, "gw": simple.default_gateway(),
-        "has": {k: bool(str(cfg.get(k, "")).strip()) for k in ("owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key")},
-        "mc": meshcore.last, "mc_sel": meshcore.selected(), "mc_err": (poller.POLLERS["meshcore"].error if "meshcore" in poller.POLLERS else "")})
+        "has": {k: bool(str(cfg.get(k, "")).strip()) for k in ("owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key", "hz_key")},
+        "mc": meshcore.last, "mc_sel": meshcore.selected(), "mc_err": (poller.POLLERS["meshcore"].error if "meshcore" in poller.POLLERS else ""),
+        "hz": heizung.last, "hz_err": poller.POLLERS["heizung"].error})
 
 
-SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key"}
+SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key", "hz_key"}
 SLIDE_KEY = re.compile(r"^sl_[a-z0-9_]{1,12}$")
 INT_LIMITS = {"brightness": (5, 100), "bl_floor": (0, 95), "slide_sec": (3, 120)}
 
@@ -386,6 +391,24 @@ async def meshcore_test(req: Request):
     return RedirectResponse(f"/settings?msg={quote(msg)}#meshcore", status_code=303)
 
 
+@app.post("/settings/heizung/test")
+async def heizung_test(req: Request):
+    if (r := need_login(req)):
+        return r
+    if not heizung.base_url() or not str(config.get("hz_key")).strip():
+        msg = "Erst Adresse und API-Schlüssel speichern."
+    else:
+        try:
+            j = await heizung._get("/api/v1/summary")
+            heizung.last.update(name=j.get("name", ""), count=len(j.get("values") or []))
+            msg = (f"Verbunden mit {j.get('name') or 'esp-p4d'}: " +
+                   ("Kessel antwortet" if j.get("online") else "Kessel antwortet NICHT auf COM1") +
+                   f", {len(j.get('values') or [])} Werte")
+        except Exception as e:  # noqa: BLE001
+            msg = f"Fehler: {e}"
+    return RedirectResponse(f"/settings?msg={quote(msg)}#heizung", status_code=303)
+
+
 @app.get("/api/awido")
 async def api_awido(req: Request, step: str = "", client: str = "", id: str = ""):
     if not logged_in(req):
@@ -474,7 +497,7 @@ def config_mirror() -> dict:
     sie im Geraet nie einen vorhandenen Key loeschen."""
     out = {}
     for k, v in config.all_values().items():
-        if k in MIRROR_SKIP or k.startswith(("sl_", "ntfy_", "mc_")):
+        if k in MIRROR_SKIP or k.startswith(("sl_", "ntfy_", "mc_", "hz_")):
             continue
         if k == "termine":
             v = json.dumps(v, ensure_ascii=False, separators=(",", ":"))

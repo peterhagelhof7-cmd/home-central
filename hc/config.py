@@ -46,6 +46,8 @@ DEFAULTS = {
     "mc_on": "0", "mc_url": "", "mc_key": "", "mc_channels": "", "mc_own": "1", "mc_ntfy": "0",
     # Warnungen ins Mesh senden (Kanal muss im Gateway fuer die API freigegeben sein)
     "mc_push": "0", "mc_push_ch": "", "mc_push_dwd": "1", "mc_push_nina": "1", "mc_push_boe": "1",
+    # Heizung: esp-p4d (Froeling S3200 ueber COM1), Abruf von /api/v1/summary
+    "hz_on": "0", "hz_url": "", "hz_key": "", "hz_push_err": "1", "hz_push_off": "1",
     "termine": [],
 }
 
