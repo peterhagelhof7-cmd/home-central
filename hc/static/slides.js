@@ -9,9 +9,9 @@
   const WD = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
   const TITLES = { clock: 'Uhrzeit & Datum', owm: 'Wetter', planes: 'Flugzeuge',
     night: 'Nachtobjekte', cal: 'Termine', dwd: 'Warnungen', spessart: 'Spessartwetter',
-    innen: 'Innenraum', kurse: 'Kurse', fritz: 'Internet (Fritzbox)', net: 'Netzwerk',
+    innen: 'Innenraum', heizung: 'Heizung', kurse: 'Kurse', fritz: 'Internet (Fritzbox)', net: 'Netzwerk',
     wifi: 'WLAN-Empfang', msg: 'Message Board' };
-  const ORDER = ['clock', 'owm', 'planes', 'night', 'cal', 'dwd', 'spessart', 'innen', 'kurse',
+  const ORDER = ['clock', 'owm', 'planes', 'night', 'cal', 'dwd', 'spessart', 'innen', 'heizung', 'kurse',
     'fritz', 'net', 'wifi', 'msg'];
 
   let D = null, list = [], idx = 0, started = 0, paused = false, content, stage;
@@ -237,6 +237,35 @@
     if (!k || !k.valid) return msgCenter(p, 'Kurse werden geladen ...');
     krow(p, -80, 'BTC-EUR', `${grpDE(k.btc_eur)} EUR`, k.has_trend ? k.btc_chg : 0);
     krow(p, 80, 'EUR-USD', `${deNum(k.eur_usd, 4)} $`, k.has_trend ? k.eur_chg : 0);
+  };
+  // Heizung (wie heizung_build() in slides.c): Zustand gross, Banner, Werte in 2 Spalten
+  function hzBanner(p, y, bg, text) {
+    el(p, `left:30px;top:${y}px;width:740px;height:36px;line-height:36px;border-radius:8px;background:${bg};` +
+      `text-align:center;overflow:hidden;text-overflow:ellipsis;font-size:${SM}px;color:#fff`, text);
+  }
+  S.heizung = p => {
+    const h = D.heizung;
+    if (!h || !h.on) return msgCenter(p, 'Heizung in home-central noch nicht eingerichtet.');
+    if (h.age < 0) return msgCenter(p, 'Warte auf Daten vom esp-p4d ...');
+    const st = el(p, `left:30px;top:4px;width:740px;text-align:center;overflow:hidden;text-overflow:ellipsis;` +
+      `font-size:${BIG}px;color:${h.online ? C.white : C.grey}`, h.online && h.state ? h.state : 'Kessel antwortet nicht');
+    st.style.whiteSpace = 'nowrap';
+    const md = h.age < 120 ? (h.mode || '') : `${h.mode ? h.mode + '  -  ' : ''}Stand vor ${Math.floor(h.age / 60)} min`;
+    el(p, `left:30px;top:62px;width:740px;text-align:center;font-size:${SM}px;color:${C.title}`, md);
+    let top = 92;
+    if (h.error) { hzBanner(p, top, '#b42318', `Störung: ${h.error}`); top += 46; }
+    else if (!h.reach) { hzBanner(p, top, '#b86e00', 'esp-p4d nicht erreichbar - letzte bekannte Werte'); top += 46; }
+    else if (!h.online) { hzBanner(p, top, '#b86e00', 'Der Kessel antwortet dem esp-p4d nicht (COM1)'); top += 46; }
+    else top += 8;
+    const v = (h.values || []).slice(0, 12);
+    if (!v.length) return topmid(p, MED, C.grey, 'Noch keine Werte (Auswahl im esp-p4d)', top + 40);
+    const rows = Math.ceil(v.length / 2);
+    v.forEach((x, i) => {
+      const col = Math.floor(i / rows), row = i % rows, xx = 30 + col * 380, y = top + row * 38;
+      if (y + 38 > 372) return;
+      el(p, `left:${xx}px;top:${y + 10}px;width:200px;overflow:hidden;text-overflow:ellipsis;font-size:${SM}px;color:${C.grey}`, x.n);
+      el(p, `left:${xx + 200}px;top:${y}px;width:160px;text-align:right;font-size:${MED}px;color:${C.white}`, x.v);
+    });
   };
   S.fritz = p => {
     const d = D.fritzbox;

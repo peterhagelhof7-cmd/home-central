@@ -85,6 +85,31 @@ def offline_reason(now_ts: float | None = None) -> str:
     return ""
 
 
+SCREEN_VALUES = 12           # so viele Werte zeigt der Infoscreen-Slide (2 Spalten x 6)
+
+
+def screen_block() -> dict | None:
+    """Block "heizung" fuer /api/v1/screen (Infoscreen-Slide, ab Firmware 1.4.0).
+    Werte schon als Text formatiert ("72,5 °C") - der Infoscreen zeigt nur an.
+    None = nicht eingerichtet (dann fehlt der Block)."""
+    if not enabled():
+        return None
+    p = poller.POLLERS.get("heizung")
+    j = poller.data("heizung") or {}
+    age = int(time.time() - p.ok_ts) if p and p.ok_ts else -1
+    return {
+        "on": True,
+        "reach": bool(p and p.ok_ts and not p.error),
+        "online": bool(j.get("online")),
+        "age": age,
+        "mode": str(j.get("mode") or "")[:31],
+        "state": str(j.get("state") or "")[:47],
+        "error": str(j.get("error") or "")[:63],
+        "values": [{"n": str(v.get("n") or v.get("k") or "")[:39], "v": fmt_value(v)[:23]}
+                   for v in (j.get("values") or [])[:SCREEN_VALUES]],
+    }
+
+
 def fmt_value(v: dict) -> str:
     val = v.get("v")
     if val is None:

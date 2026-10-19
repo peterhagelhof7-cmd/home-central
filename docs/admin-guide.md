@@ -255,6 +255,10 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
   - **ohne Daten**: Ist das esp-p4d länger als 10 min nicht erreichbar oder antwortet der Kessel dem
     esp-p4d so lange nicht, kommt eine Meldung; wenn wieder Daten kommen, eine Entwarnung.
 - Die Heizungs-Einstellungen gehen nicht in die Einstellungs-Kopie für den Infoscreen.
+- **Infoscreen-Slide „Heizung“** (ab home-central 0.6.0 + Infoscreen-Firmware 1.4.0): Zustand, Störung
+  und die ersten **12** Werte (Reihenfolge wie im esp-p4d). Der Slide ist nur an, solange die Heizung hier
+  eingerichtet ist; ausblenden wie jeden Slide unter *Anzeige*. Ältere Infoscreen-Firmware ignoriert die
+  Heizungsdaten einfach. Die Live-Slides auf der Startseite zeigen ihn ebenfalls.
 
 ---
 

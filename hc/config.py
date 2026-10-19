@@ -17,7 +17,7 @@ SECRETS_FILE = os.path.join(DATA_DIR, "secrets.json")
 SLIDES = [
     ("clock", "Uhrzeit & Datum"), ("owm", "Wetter"), ("planes", "Flugzeuge"),
     ("night", "Nachtobjekte"), ("cal", "Termine"), ("dwd", "Warnungen"),
-    ("spessart", "Spessartwetter"), ("innen", "Innenraum"), ("kurse", "Kurse"),
+    ("spessart", "Spessartwetter"), ("innen", "Innenraum"), ("heizung", "Heizung"), ("kurse", "Kurse"),
     ("fritz", "Internet (Fritzbox)"), ("net", "Netzwerk"), ("wifi", "WLAN-Empfang"),
     ("msg", "Message Board"),
 ]

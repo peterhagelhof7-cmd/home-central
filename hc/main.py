@@ -27,7 +27,7 @@ from . import config, device, heizung, meshcore, net, ntfy, poller, telegram
 from .sources import extra, kalender, muell, owm, simple
 from .tz import now
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -435,7 +435,8 @@ def build_screen(take_cmd: bool) -> dict:
         "cfg_hash": config_hash(),
         "display": {"brightness": int(c["brightness"]), "bl_floor": int(c["bl_floor"]),
                     "slide_sec": int(c["slide_sec"]), "rot180": c["rot180"] == "1",
-                    "slides": {sid: c.get(f"sl_{sid}", "1") == "1" for sid, _ in config.slide_catalog()}},
+                    "slides": {sid: c.get(f"sl_{sid}", "1") == "1" and (sid != "heizung" or heizung.enabled())
+                               for sid, _ in config.slide_catalog()}},
         "age": {},
     }
     for name in ("owm", "spessart", "dwd", "nina", "kurse", "fritzbox", "planes", "space"):
@@ -450,6 +451,10 @@ def build_screen(take_cmd: bool) -> dict:
     out["termine"] = [{"date": e["d"], "time": e.get("t", ""), "title": e["ti"]} for e in kalender.termine()]
     today = now().strftime("%Y-%m-%d")
     out["feiertage"] = [f for f in kalender.feiertage() if f["date"] >= today]
+    # Heizung (esp-p4d): nur wenn eingerichtet; Infoscreen ab 1.4.0 zeigt sie als Slide
+    hz = heizung.screen_block()
+    if hz is not None:
+        out["heizung"] = hz
     out["telegram"] = {"version": telegram.version, "msgs": list(telegram.history),
                        "configured": telegram.configured()}
     return out
