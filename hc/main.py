@@ -18,16 +18,16 @@ from contextlib import asynccontextmanager
 from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, device, heizung, meshcore, net, ntfy, poller, telegram
-from .sources import extra, kalender, muell, owm, simple
+from . import config, device, heizung, history, meshcore, net, ntfy, poller, telegram
+from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -65,12 +65,13 @@ def make_pollers():
     P("space", "Nachtobjekte (N2YO/NASA)", extra.space, 2 * 3600, retry=15 * 60)
     P("meshcore", "MeshCore-Gateway (Kanäle → Telegram)", meshcore.poll, 15, retry=60)
     P("heizung", "Heizung (esp-p4d)", heizung.poll, 30, retry=60)
+    P("openmeteo", "Stundenvorhersage (Open-Meteo)", openmeteo.poll, 3 * 3600, retry=30 * 60)
 
 
 # Welche Poller nach einer Einstellungsaenderung sofort neu laufen sollen.
 REFRESH_ON = {
     "owm_": ["owm"], "nina_": ["nina"], "fb_": ["fritzbox"], "muell_": ["muell"], "kino_": ["kino"],
-    "planes_": ["planes", "space", "dwd"], "space_": ["space"], "n2yo_": ["space"], "nasa_": ["space"],
+    "planes_": ["planes", "space", "dwd", "openmeteo"], "space_": ["space"], "n2yo_": ["space"], "nasa_": ["space"],
     "mc_": ["meshcore"], "hz_": ["heizung"],
 }
 
@@ -90,7 +91,7 @@ async def lifespan(app: FastAPI):
     for p in poller.POLLERS.values():
         p.start()
     tasks = [asyncio.create_task(telegram.bot_loop()), asyncio.create_task(telegram.push_loop()),
-             asyncio.create_task(_housekeeping())]
+             asyncio.create_task(_housekeeping()), asyncio.create_task(history.loop())]
     log.info("home-central %s gestartet", __version__)
     yield
     for t in tasks:
@@ -389,6 +390,56 @@ async def meshcore_test(req: Request):
         except Exception as e:  # noqa: BLE001
             msg = f"Fehler: {type(e).__name__}: {e or 'Gateway nicht erreichbar'}"[:200]
     return RedirectResponse(f"/settings?msg={quote(msg)}#meshcore", status_code=303)
+
+
+# --- Verlauf (Aufzeichnung fuer die Anfeuer-Empfehlung) ---------------------------
+@app.get("/heizung", response_class=HTMLResponse)
+async def heizung_page(req: Request, msg: str = ""):
+    if (r := need_login(req)):
+        return r
+    series = await asyncio.to_thread(history.series_list)
+    hz_vals = [{"k": s["key"], "n": s["name"]} for s in series if s["src"] == "hz"]
+    return templates.TemplateResponse(req, "heizung.html", {
+        "msg": msg, "series": series, "roles": history.ROLES, "assigned": history.roles(),
+        "suggest": history.suggest_roles(hz_vals), "stats": await asyncio.to_thread(history.db_stats),
+        "rec": history.stats, "hz_on": heizung.enabled(), "version": __version__})
+
+
+@app.post("/heizung/rollen")
+async def heizung_rollen(req: Request):
+    if (r := need_login(req)):
+        return r
+    form = await req.form()
+    roles = {rid: str(form.get(f"role_{rid}", "")).strip() for rid in history.ROLE_IDS}
+    config.set_many({"hz_roles": json.dumps({k: v for k, v in roles.items() if v}, ensure_ascii=False)})
+    log.info("Zuordnung der Heizungswerte gespeichert: %d Rollen", sum(1 for v in roles.values() if v))
+    return RedirectResponse("/heizung?msg=Zuordnung+gespeichert", status_code=303)
+
+
+@app.get("/ui/history.json")
+async def ui_history(req: Request, ids: str = "", hours: int = 24):
+    if not logged_in(req):
+        return JSONResponse({}, status_code=401)
+    hours = max(1, min(hours, 24 * 400))
+    sids = [int(x) for x in ids.split(",") if x.strip().isdigit()][:20]
+    until = int(time.time())
+    since = until - hours * 3600
+    data = await asyncio.to_thread(history.query, sids, since, until)
+    states = await asyncio.to_thread(history.states_between, since, until)
+    return {"since": since, "until": until, "series": data,
+            "states": [s for s in states if s["key"] in ("state", "error", "online")]}
+
+
+@app.get("/history/export.csv")
+async def history_export(req: Request, days: int = 30):
+    if (r := need_login(req)):
+        return r
+    days = max(1, min(days, 3650))
+    until = int(time.time())
+    lines = await asyncio.to_thread(lambda: list(history.csv_lines(until - days * 86400, until)))
+    name = f"home-central-verlauf-{time.strftime('%Y%m%d')}-{days}d.csv"
+    return StreamingResponse(iter(lines), media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @app.post("/settings/heizung/test")

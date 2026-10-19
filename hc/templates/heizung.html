@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}home-central Verlauf{% endblock %}
+{% block body %}
+<div class="top">
+  <h1>Verlauf</h1>
+  <nav><a class="navbtn" href="/">&larr; &Uuml;bersicht</a><a class="navbtn" href="/settings">&#9881; Einstellungen</a></nav>
+</div>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+{% set hz = series | selectattr("src", "equalto", "hz") | list %}
+{% set bykey = {} %}{% for s in hz %}{% set _ = bykey.update({s.key: s}) %}{% endfor %}
+
+<div class="card">
+  <h2>Diagramm</h2><div class="sub">Zugeordnete Heizungswerte, Innenraum und Außenwetter &ndash; Legende antippen blendet eine Linie aus</div>
+  <div class="hv-range">
+    <button type="button" class="on" data-h="24">24 h</button><button type="button" data-h="168">7 Tage</button>
+    <button type="button" data-h="720">30 Tage</button><button type="button" data-h="8760">1 Jahr</button>
+  </div>
+  <canvas id="hv" height="320" style="width:100%;height:320px;background:#0f1630;border-radius:8px"></canvas>
+  <div id="hv-legend" class="hv-legend"></div>
+  <div class="st" id="hv-info"></div>
+</div>
+
+<div class="card" id="rollen">
+  <h2>Zuordnung der Heizungswerte</h2>
+  <div class="sub">Welcher Wert des esp-p4d ist was &ndash; für Diagramm und die spätere Anfeuer-Empfehlung. Aufgezeichnet wird unabhängig davon alles.</div>
+  {% if not hz %}
+  <div class="st">Noch keine Heizungswerte aufgezeichnet. {% if not hz_on %}Erst unter Einstellungen &rarr; Heizung (esp-p4d) einrichten.{% else %}Die erste Aufzeichnung kommt innerhalb von 5 min.{% endif %}</div>
+  {% else %}
+  <form method="post" action="/heizung/rollen">
+    <table>
+    {% for rid, title, _ in roles %}
+      {% set cur = assigned.get(rid) or suggest.get(rid) or "" %}
+      <tr><th style="width:38%">{{ title }}{% if not assigned.get(rid) and suggest.get(rid) %}<div class="st">Vorschlag</div>{% endif %}</th>
+        <td><select name="role_{{ rid }}">
+          <option value="">&ndash; nicht vorhanden &ndash;</option>
+          {% for s in hz %}<option value="{{ s.key }}" {{ 'selected' if s.key == cur }}>{{ s.name }}{% if s.unit %} [{{ s.unit }}]{% endif %} &middot; {{ s.key }}</option>{% endfor %}
+          {% if assigned.get(rid) and assigned.get(rid) not in bykey %}<option value="{{ assigned.get(rid) }}" selected>{{ assigned.get(rid) }} (nicht mehr gemeldet)</option>{% endif %}
+        </select></td></tr>
+    {% endfor %}
+    </table>
+    <button type="submit">Zuordnung speichern</button>
+  </form>
+  <div class="st">Vorschläge kommen aus den Namen, die der Kessel liefert &ndash; bitte prüfen. Mischerstellung und Pumpen (z. B. Solarpumpe)
+    sind beim S3200 Ausgänge, die das esp-p4d noch nicht liest; sie erscheinen hier, sobald es das kann.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Aufzeichnung</h2><div class="sub">alle 5 min &middot; unveränderte Werte höchstens alle 30 min &middot; ab 90 Tagen Stundenmittel</div>
+  <table>
+    <tr><th>Messwerte</th><td>{{ "{:,}".format(stats.samples).replace(",", ".") }} in {{ stats.series }} Reihen</td></tr>
+    <tr><th>seit</th><td id="hv-since" data-ts="{{ stats.since }}">{{ "–" if not stats.since }}</td></tr>
+    <tr><th>Vorhersage-Werte</th><td>{{ "{:,}".format(stats.forecast).replace(",", ".") }} (Open-Meteo, alle 3 h)</td></tr>
+    <tr><th>Dateigröße</th><td>{{ "%.1f" | format(stats.size / 1048576) }} MB</td></tr>
+    <tr><th>letzte Aufzeichnung</th><td id="hv-last" data-ts="{{ rec.last_run | int }}">{{ "–" if not rec.last_run }}</td></tr>
+  </table>
+  {% if rec.last_error %}<div class="st err">{{ rec.last_error }}</div>{% endif %}
+  <a class="btn" href="/history/export.csv?days=7">CSV 7 Tage</a>
+  <a class="btn grey" href="/history/export.csv?days=30">CSV 30 Tage</a>
+  <a class="btn grey" href="/history/export.csv?days=3650">CSV alles</a>
+  <div class="st">CSV für Excel: Semikolon, Dezimalkomma. Zustandswechsel des Kessels (Betriebsart, Zustand, Störung) stehen mit drin.</div>
+  <details style="margin-top:12px"><summary>Alle Reihen ({{ series | length }})</summary>
+    <table>{% for s in series %}<tr><td>{{ s.src }}</td><td>{{ s.name }}{% if s.unit %} [{{ s.unit }}]{% endif %}</td><td class="st">{{ s.key }} &middot; {{ s.count }}</td></tr>{% endfor %}</table>
+  </details>
+</div>
+<div class="st" style="text-align:center">home-central {{ version }}</div>
+
+<style>
+.hv-range{display:flex;gap:6px;margin-bottom:8px}
+.hv-range button{width:auto;margin:0;padding:5px 12px;font-size:14px;background:#28345c;color:#cfd8ea}
+.hv-range button.on{background:#4a6fd8;color:#fff}
+.hv-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:13px}
+.hv-legend span{cursor:pointer;white-space:nowrap}.hv-legend span.off{opacity:.35;text-decoration:line-through}
+.hv-legend i{display:inline-block;width:12px;height:3px;margin-right:5px;vertical-align:middle}
+</style>
+<script>
+(function(){
+  const SERIES = {{ series | tojson }}, ROLES = {{ roles | map(attribute=0) | list | tojson }},
+        TITLES = {{ roles | map(attribute=1) | list | tojson }},
+        // gespeicherte Zuordnung, sonst der Vorschlag (damit das Diagramm schon vor dem Speichern etwas zeigt)
+        ASSIGNED = Object.assign({}, {{ suggest | tojson }}, {{ assigned | tojson }});
+  const fmt = ts => new Date(ts * 1000).toLocaleString('de-DE', {dateStyle: 'short', timeStyle: 'short'});
+  for (const id of ['hv-since', 'hv-last']) { const e = document.getElementById(id); if (+e.dataset.ts) e.textContent = fmt(+e.dataset.ts); }
+  // Gezeigte Reihen: zugeordnete Rollen (mit Rollen-Titel), dazu Innenraum und Außenwetter
+  const show = [];
+  ROLES.forEach((r, i) => { const s = SERIES.find(x => x.src === 'hz' && x.key === ASSIGNED[r]); if (s) show.push({id: s.id, label: TITLES[i], unit: s.unit}); });
+  for (const [src, key, label] of [['innen', 'temp', 'Innenraum'], ['spessart', 'temp', 'Spessartwetter'], ['owm', 'temp', 'OWM']]) {
+    const s = SERIES.find(x => x.src === src && x.key === key); if (s) show.push({id: s.id, label, unit: s.unit});
+  }
+  const COL = ['#f5a742', '#8ab4f8', '#ef6b6b', '#7ce38b', '#f5c542', '#c58af9', '#4dd0e1', '#ff8a80', '#a5d6a7',
+               '#ffcc80', '#90caf9', '#ce93d8', '#80cbc4', '#e6ee9c', '#bcaaa4', '#ffffff', '#b0b8d0', '#8a92a6'];
+  const off = new Set(); let data = null, hours = 24;
+  const cv = document.getElementById('hv'), info = document.getElementById('hv-info');
+  async function load() {
+    if (!show.length) { info.textContent = 'Noch nichts zum Anzeigen – Zuordnung festlegen oder erste Aufzeichnung abwarten.'; return; }
+    const r = await fetch(`/ui/history.json?hours=${hours}&ids=${show.map(s => s.id).join(',')}`, {cache: 'no-store'});
+    if (!r.ok) return;
+    data = await r.json(); draw(); legend();
+  }
+  function legend() {
+    const L = document.getElementById('hv-legend'); L.innerHTML = '';
+    show.forEach((s, i) => {
+      const e = document.createElement('span'); e.className = off.has(s.id) ? 'off' : '';
+      e.innerHTML = `<i style="background:${COL[i % COL.length]}"></i>`; e.append(`${s.label}${s.unit ? ' [' + s.unit + ']' : ''}`);
+      e.onclick = () => { off.has(s.id) ? off.delete(s.id) : off.add(s.id); legend(); draw(); };
+      L.appendChild(e);
+    });
+  }
+  function draw() {
+    const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = 320;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+    const L = 44, R = 10, T = 10, B = 26, x0 = data.since, x1 = data.until;
+    const vis = data.series.filter(s => !off.has(s.id) && s.points.length && show.some(x => x.id === s.id));
+    let lo = Infinity, hi = -Infinity;
+    vis.forEach(s => s.points.forEach(p => { lo = Math.min(lo, p[1]); hi = Math.max(hi, p[1]); }));
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+    const pad = Math.max(1, (hi - lo) * 0.08); lo -= pad; hi += pad;
+    const X = t => L + (t - x0) / (x1 - x0) * (W - L - R), Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    g.font = '11px system-ui'; g.fillStyle = '#8a92a6'; g.strokeStyle = '#2a3556'; g.lineWidth = 1;
+    const step = (hi - lo) > 60 ? 20 : (hi - lo) > 25 ? 10 : (hi - lo) > 10 ? 5 : 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(W - R, Y(v)); g.stroke(); g.fillText(String(v), 4, Y(v) + 4);
+    }
+    const span = x1 - x0, tstep = span <= 86400 ? 3 * 3600 : span <= 7 * 86400 ? 86400 : span <= 31 * 86400 ? 5 * 86400 : 30 * 86400;
+    const tz = new Date().getTimezoneOffset() * 60;
+    for (let t = Math.ceil((x0 - tz) / tstep) * tstep + tz; t <= x1; t += tstep) {
+      g.beginPath(); g.moveTo(X(t), T); g.lineTo(X(t), H - B); g.stroke();
+      const d = new Date(t * 1000);
+      g.fillText(span <= 86400 ? `${String(d.getHours()).padStart(2, '0')}:00` : `${d.getDate()}.${d.getMonth() + 1}.`, X(t) - 14, H - 8);
+    }
+    data.series.forEach(s => {
+      const i = show.findIndex(x => x.id === s.id);
+      if (off.has(s.id) || i < 0) return;
+      g.strokeStyle = COL[i % COL.length]; g.lineWidth = 2; g.beginPath();
+      let prev = null;
+      s.points.forEach(p => {   // Luecken (> 1 h ohne Wert) nicht verbinden
+        if (prev === null || p[0] - prev > Math.max(3600, span / 200)) g.moveTo(X(p[0]), Y(p[1])); else g.lineTo(X(p[0]), Y(p[1]));
+        prev = p[0];
+      });
+      g.stroke();
+    });
+    const n = data.series.reduce((a, s) => a + s.points.length, 0);
+    info.textContent = n ? `${n} Punkte · ${fmt(x0)} – ${fmt(x1)}` : 'Für diesen Zeitraum noch keine Werte.';
+  }
+  document.querySelectorAll('.hv-range button').forEach(b => b.onclick = () => {
+    hours = +b.dataset.h;
+    document.querySelectorAll('.hv-range button').forEach(x => x.classList.toggle('on', x === b));
+    load();
+  });
+  window.addEventListener('resize', () => data && draw());
+  load(); setInterval(load, 5 * 60 * 1000);
+})();
+</script>
+{% endblock %}

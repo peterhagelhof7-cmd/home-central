@@ -255,6 +255,20 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
   - **ohne Daten**: Ist das esp-p4d länger als 10 min nicht erreichbar oder antwortet der Kessel dem
     esp-p4d so lange nicht, kommt eine Meldung; wenn wieder Daten kommen, eine Entwarnung.
 - Die Heizungs-Einstellungen gehen nicht in die Einstellungs-Kopie für den Infoscreen.
+- **Verlauf** (ab 0.7.0, Seite *Verlauf* oben auf der Übersicht): Grundlage für die geplante
+  Anfeuer-Empfehlung. Alle 5 min zeichnet home-central **alle** Werte des esp-p4d auf, dazu Innenraum
+  (Infoscreen), Spessartwetter und OWM. Zustandswechsel des Kessels (Betriebsart, Zustand, Störung)
+  werden mit Zeitpunkt gespeichert, die stündliche Vorhersage von **Open-Meteo** (Temperatur,
+  Sonneneinstrahlung, Bewölkung, Wind, Luftfeuchte) alle 3 h mit dem Zeitpunkt des Laufs.
+  - Datei `/var/lib/home-central/history.db` (SQLite), etwa 10–20 MB pro Jahr. Unveränderte Werte
+    werden höchstens alle 30 min geschrieben; Rohdaten älter als 90 Tage werden nachts zu
+    Stundenmitteln verdichtet. Gesichert wird sie mit dem Backup der VM.
+  - **Zuordnung:** Auf der Seite *Verlauf* festlegen, welcher Kesselwert Puffer oben/mitte/unten,
+    Warmwasser, Vorlauf, Raum OG, Außen, Kollektor usw. ist. home-central schlägt die Zuordnung anhand
+    der Namen vor (bitte prüfen und speichern). Aufgezeichnet wird unabhängig davon alles.
+  - **Diagramm** über 24 h, 7 Tage, 30 Tage oder 1 Jahr; **CSV-Export** (Semikolon, Dezimalkomma).
+  - Mischerstellung und Pumpen (z. B. Solarpumpe) sind beim S3200 Ausgänge, die das esp-p4d noch
+    nicht liest.
 - **Infoscreen-Slide „Heizung“** (ab home-central 0.6.0 + Infoscreen-Firmware 1.4.0): Zustand, Störung
   und die ersten **12** Werte (Reihenfolge wie im esp-p4d). Der Slide ist nur an, solange die Heizung hier
   eingerichtet ist; ausblenden wie jeden Slide unter *Anzeige*. Ältere Infoscreen-Firmware ignoriert die
