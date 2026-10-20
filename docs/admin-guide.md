@@ -311,7 +311,7 @@ Geräte holen den neuen Token automatisch. Im Infoscreen selbst: Datenquelle →
 Alternativ Einstellungen → System → **Einstellungen herunterladen** (ohne Passwort/Token/Kopplungen).
 
 **Abfrage-Intervalle:** Wetter 20 min (Vorhersage ~3 h), Spessart 30 min, DWD/NINA 15 min,
-Kurse 5 min, Fritzbox 10 s, Müll 6 h, Kino 6 h, Flugzeuge 1 min, Satelliten 2 h / Asteroiden 6 h.
+Kurse 5 min, Fritzbox 10 s, Müll 6 h, Kino 6 h, Flugzeuge 4 min (adsb.lol erlaubt nur 500 Abfragen am Tag; ist das Kontingent aus, wartet home-central bis zur Freigabe), Satelliten 2 h / Asteroiden 6 h.
 Nach einem Fehler wird früher erneut versucht; die letzten guten Daten bleiben erhalten.
 
 ---

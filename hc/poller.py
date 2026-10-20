@@ -23,6 +23,7 @@ class Poller:
         self.ok_ts = 0.0          # Zeitpunkt des letzten Erfolgs
         self.try_ts = 0.0         # Zeitpunkt des letzten Versuchs
         self.error = ""           # letzter Fehlertext ("" = ok)
+        self.pause_until = 0.0    # vor diesem Zeitpunkt nicht erneut abrufen (Sperrzeit der Quelle)
         self._wake = asyncio.Event()
         self._lock = asyncio.Lock()
         self._task = None
@@ -35,12 +36,16 @@ class Poller:
                 data = await self.func()
             except Exception as e:  # noqa: BLE001 - jede Quelle darf scheitern
                 self.error = f"{type(e).__name__}: {e}"[:200]
+                # Quelle meldet Sperrzeit (z.B. Tageskontingent aus) -> so lange nicht fragen
+                ra = getattr(e, "retry_after", 0)
+                self.pause_until = time.time() + ra if ra else 0.0
                 log.warning("%s: %s", self.name, self.error)
                 return False
             if data is not None:
                 self.data = data
             self.ok_ts = time.time()
             self.error = ""
+            self.pause_until = 0.0
             return True
 
     async def _loop(self):
@@ -48,8 +53,9 @@ class Poller:
         while True:
             ok = await self.run_once()
             self._wake.clear()
+            wait = self.interval if ok else max(self.retry, self.pause_until - time.time())
             try:
-                await asyncio.wait_for(self._wake.wait(), self.interval if ok else self.retry)
+                await asyncio.wait_for(self._wake.wait(), wait)
             except asyncio.TimeoutError:
                 pass
 
@@ -61,7 +67,8 @@ class Poller:
 
     def status(self) -> dict:
         return {"name": self.name, "title": self.title, "ok_ts": self.ok_ts,
-                "try_ts": self.try_ts, "error": self.error, "interval": self.interval}
+                "try_ts": self.try_ts, "error": self.error, "interval": self.interval,
+                "pause_until": self.pause_until if self.pause_until > time.time() else 0}
 
 
 def data(name: str, default=None):

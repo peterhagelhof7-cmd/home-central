@@ -7,6 +7,8 @@ import logging
 import math
 from datetime import datetime, timedelta
 
+import httpx
+
 from .. import config, net
 from ..tz import TZ, now, today_iso
 
@@ -116,6 +118,19 @@ async def planes(route_cap: int = PLANES_MAX) -> dict:
     url = f"https://api.adsb.lol/v2/point/{lat}/{lon}/{rad}"
     try:
         j = await net.get_json(url)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code != 429:
+            raise
+        # Kontingent je Adresse (500/Tag, 60/min, 4/s) aufgebraucht -> nicht nachfragen,
+        # bis adsb.lol es zuruecksetzt (x-ratelimit-reset in s)
+        try:
+            reset = int(e.response.headers.get("x-ratelimit-reset", "0"))
+        except ValueError:
+            reset = 0
+        err = RuntimeError(f"adsb.lol-Kontingent aufgebraucht, wieder in {reset // 60} min" if reset
+                           else "adsb.lol-Kontingent aufgebraucht")
+        err.retry_after = min(max(reset, 300), 12 * 3600)
+        raise err from None
     except Exception:
         await asyncio.sleep(1.5)   # adsb.lol setzt gelegentlich zurueck -> ein Retry
         j = await net.get_json(url)

@@ -27,7 +27,7 @@ from . import config, device, heizung, history, meshcore, net, ntfy, poller, tel
 from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -61,7 +61,8 @@ def make_pollers():
     P("fritzbox", "Fritzbox (UPnP)", simple.fritzbox, 10, retry=30)
     P("muell", "Müllabfuhr", muell.poll, 6 * 3600, retry=15 * 60)
     P("kino", "Kino", extra.kino, 6 * 3600, retry=30 * 60)
-    P("planes", "Flugzeuge (adsb.lol)", lambda: extra.planes(route_cap=3), 60, retry=60)
+    # adsb.lol: max. 500 Abfragen/Tag je Adresse -> alle 4 min (360/Tag, Rest für Bot/Neustarts)
+    P("planes", "Flugzeuge (adsb.lol)", lambda: extra.planes(route_cap=3), 4 * 60, retry=5 * 60)
     P("space", "Nachtobjekte (N2YO/NASA)", extra.space, 2 * 3600, retry=15 * 60)
     P("meshcore", "MeshCore-Gateway (Kanäle → Telegram)", meshcore.poll, 15, retry=60)
     P("heizung", "Heizung (esp-p4d)", heizung.poll, 30, retry=60)

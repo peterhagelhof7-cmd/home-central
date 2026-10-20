@@ -247,11 +247,12 @@ async def cmd_vorhersage():
 
 async def cmd_planes():
     p = poller.POLLERS["planes"]
-    try:
-        p.data = await extra.planes(route_cap=extra.PLANES_MAX)
-        p.ok_ts, p.error = time.time(), ""
-    except Exception:
-        pass
+    if p.pause_until <= time.time():   # Kontingent gesperrt -> letzten Stand zeigen
+        try:
+            p.data = await extra.planes(route_cap=extra.PLANES_MAX)
+            p.ok_ts, p.error = time.time(), ""
+        except Exception:
+            pass
     d = p.data
     if not d or not d.get("valid"):
         return await send("✈ Flugzeuge: Abruf fehlgeschlagen.")
