@@ -27,7 +27,7 @@ from . import config, device, heizung, history, meshcore, net, ntfy, poller, tel
 from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -399,7 +399,7 @@ async def heizung_page(req: Request, msg: str = ""):
     if (r := need_login(req)):
         return r
     series = await asyncio.to_thread(history.series_list)
-    hz_vals = [{"k": s["key"], "n": s["name"]} for s in series if s["src"] == "hz"]
+    hz_vals = [{"k": s["key"], "n": s["name"], "u": s["unit"]} for s in series if s["src"] == "hz"]
     return templates.TemplateResponse(req, "heizung.html", {
         "msg": msg, "series": series, "roles": history.ROLES, "assigned": history.roles(),
         "suggest": history.suggest_roles(hz_vals), "stats": await asyncio.to_thread(history.db_stats),

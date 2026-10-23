@@ -47,7 +47,7 @@ ROLES = [
     ("puffer_oben", "Puffer/Boiler oben", ["puffer oben", "pufferoben", "puffertemp oben", "boiler oben", "puffer o"]),
     ("puffer_mitte", "Puffer/Boiler mitte", ["puffer mitte", "puffermitte", "boiler mitte", "puffer m"]),
     ("puffer_unten", "Puffer/Boiler unten", ["puffer unten", "pufferunten", "boiler unten", "puffer u"]),
-    ("warmwasser", "Warmwasser", ["warmwasser", "brauchwasser", "boilertemp", "boiler"]),
+    ("warmwasser", "Warmwasser", ["warmwasser", "brauchwasser", "boilertemp oben", "boilertemp", "boiler"]),
     ("vorlauf_1", "Vorlauf Heizkreis 1", ["vorlauftemp 1", "vorlauf 1", "vorlauf hk1", "vorlauf hk 1", "vorlauf"]),
     ("vorlauf_2", "Vorlauf Heizkreis 2", ["vorlauftemp 2", "vorlauf 2", "vorlauf hk2", "vorlauf hk 2"]),
     ("mischer_1", "Mischer Heizkreis 1", ["mischer 1", "mischer hk1", "mischer hk 1", "mischer"]),
@@ -57,6 +57,13 @@ ROLES = [
     ("solar_pumpe", "Solarpumpe", ["solarpumpe", "kollektorpumpe", "solar pumpe"]),
 ]
 ROLE_IDS = [r[0] for r in ROLES]
+# Vorschlag nur aus Werten mit passender Einheit (Anfang), sonst landet z. B. "Warmwasser"
+# auf "Strömungsschalter an der Brauchwasser Leitung", "Solar" auf der WMZ-Leistung oder
+# "Solarpumpe" auf "Laufzeit Kollektorpumpe" (h). esp-p4d: "°C", vor 0.2.2 nur "°".
+ROLE_UNITS = {rid: "°" for rid in ("raum_og", "aussen", "kessel", "abgas", "puffer_oben", "puffer_mitte",
+                                   "puffer_unten", "warmwasser", "vorlauf_1", "vorlauf_2", "kollektor",
+                                   "solar_speicher")}
+ROLE_UNITS["solar_pumpe"] = "%"
 
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None
@@ -262,16 +269,18 @@ def _matches(words: str, name_tokens: list[str]) -> bool:
 
 def suggest_roles(values: list[dict]) -> dict[str, str]:
     """Vorschlag {rolle: schluessel} aus den Namen der Kesselwerte. Spezifische
-    Begriffe zuerst; jeder Wert wird hoechstens einer Rolle zugeordnet."""
+    Begriffe zuerst; jeder Wert wird hoechstens einer Rolle zugeordnet.
+    Rollen aus ROLE_UNITS nehmen nur Werte mit passender Einheit."""
     taken, out = set(), {}
-    names = [(v.get("k"), _norm(v.get("n") or "").split()) for v in values if v.get("k")]
+    names = [(v.get("k"), _norm(v.get("n") or "").split(), str(v.get("u") or "")) for v in values if v.get("k")]
     for depth in range(max(len(r[2]) for r in ROLES)):   # erst die genauesten Begriffe aller Rollen, dann allgemeinere
         for rid, _, words in ROLES:
             if rid in out or depth >= len(words):
                 continue
             w = _norm(words[depth])
-            for k, n in names:
-                if k not in taken and _matches(w, n):
+            unit = ROLE_UNITS.get(rid, "")
+            for k, n, u in names:
+                if k not in taken and u.startswith(unit) and _matches(w, n):
                     out[rid] = k
                     taken.add(k)
                     break
@@ -294,7 +303,8 @@ async def collect(ts: int) -> tuple[list, list]:
             if j.get("connected"):
                 for v in j.get("values") or []:
                     age = v.get("age")
-                    if v.get("v") is None or age is None or age > MAX_AGE_HZ:
+                    # nc = Fuehler nicht angeschlossen (esp-p4d ab 0.2.2, Kessel meldet dann 127 °C)
+                    if v.get("v") is None or v.get("nc") or age is None or age > MAX_AGE_HZ:
                         continue
                     values.append(("hz", v["k"], v.get("n") or v["k"], v.get("u") or "", float(v["v"])))
         except Exception as e:  # noqa: BLE001 - dann eben ohne Kesselwerte
