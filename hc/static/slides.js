@@ -238,10 +238,10 @@
     krow(p, -80, 'BTC-EUR', `${grpDE(k.btc_eur)} EUR`, k.has_trend ? k.btc_chg : 0);
     krow(p, 80, 'EUR-USD', `${deNum(k.eur_usd, 4)} $`, k.has_trend ? k.eur_chg : 0);
   };
-  // Heizung (wie heizung_build() in slides.c): Zustand gross, Banner, Werte in 2 Spalten
+  // Heizung (wie heizung_build() in slides.c): Zustand gross, ggf. Alter + Banner, Werte in 2 Spalten
   function hzBanner(p, y, bg, text) {
-    el(p, `left:30px;top:${y}px;width:740px;height:36px;line-height:36px;border-radius:8px;background:${bg};` +
-      `text-align:center;overflow:hidden;text-overflow:ellipsis;font-size:${SM}px;color:#fff`, text);
+    el(p, `left:30px;top:${y}px;width:740px;height:44px;line-height:44px;border-radius:8px;background:${bg};` +
+      `text-align:center;overflow:hidden;text-overflow:ellipsis;font-size:${MED}px;color:#fff`, text);
   }
   S.heizung = p => {
     const h = D.heizung;
@@ -250,21 +250,24 @@
     const st = el(p, `left:30px;top:4px;width:740px;text-align:center;overflow:hidden;text-overflow:ellipsis;` +
       `font-size:${BIG}px;color:${h.online ? C.white : C.grey}`, h.online && h.state ? h.state : 'Kessel antwortet nicht');
     st.style.whiteSpace = 'nowrap';
-    const md = h.age < 120 ? (h.mode || '') : `${h.mode ? h.mode + '  -  ' : ''}Stand vor ${Math.floor(h.age / 60)} min`;
-    el(p, `left:30px;top:62px;width:740px;text-align:center;font-size:${SM}px;color:${C.title}`, md);
-    let top = 92;
-    if (h.error) { hzBanner(p, top, '#b42318', `Störung: ${h.error}`); top += 46; }
-    else if (!h.reach) { hzBanner(p, top, '#b86e00', 'esp-p4d nicht erreichbar - letzte bekannte Werte'); top += 46; }
-    else if (!h.online) { hzBanner(p, top, '#b86e00', 'Der Kessel antwortet dem esp-p4d nicht (COM1)'); top += 46; }
-    else top += 8;
+    let top = 72;
+    if (h.age >= 120) {
+      el(p, `left:30px;top:${top - 6}px;width:740px;text-align:center;font-size:${MED}px;color:${C.title}`, `Stand vor ${Math.floor(h.age / 60)} min`);
+      top += 38;
+    }
+    if (h.error) { hzBanner(p, top, '#b42318', `Störung: ${h.error}`); top += 52; }
+    else if (!h.reach) { hzBanner(p, top, '#b86e00', 'esp-p4d nicht erreichbar - letzte Werte'); top += 52; }
+    else if (!h.online) { hzBanner(p, top, '#b86e00', 'Kessel antwortet nicht (COM1)'); top += 52; }
     const v = (h.values || []).slice(0, 12);
     if (!v.length) return topmid(p, MED, C.grey, 'Noch keine Werte (Auswahl im esp-p4d)', top + 40);
-    const rows = Math.ceil(v.length / 2);
+    const rows = Math.ceil(v.length / 2), rh = Math.max(34, Math.min(48, Math.floor((372 - top) / rows)));
     v.forEach((x, i) => {
-      const col = Math.floor(i / rows), row = i % rows, xx = 30 + col * 380, y = top + row * 38;
-      if (y + 38 > 372) return;
-      el(p, `left:${xx}px;top:${y + 10}px;width:200px;overflow:hidden;text-overflow:ellipsis;font-size:${SM}px;color:${C.grey}`, x.n);
-      el(p, `left:${xx + 200}px;top:${y}px;width:160px;text-align:right;font-size:${MED}px;color:${C.white}`, x.v);
+      const col = Math.floor(i / rows), row = i % rows, xx = 30 + col * 390, y = top + row * rh;
+      if (y + rh > 372) return;
+      el(p, `left:${xx}px;top:${y}px;width:350px;height:${rh}px;box-sizing:border-box;border-bottom:1px solid #1f2a4a`);
+      const ty = y + Math.floor((rh - 32) / 2);
+      el(p, `left:${xx}px;top:${ty}px;width:235px;overflow:hidden;text-overflow:ellipsis;font-size:${MED}px;color:${C.grey}`, x.n);
+      el(p, `left:${xx + 235}px;top:${ty}px;width:115px;text-align:right;font-size:${MED}px;color:${C.white}`, x.v);
     });
   };
   S.fritz = p => {

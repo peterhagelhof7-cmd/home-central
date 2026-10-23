@@ -297,6 +297,9 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
   und die ersten **12** Werte (Reihenfolge wie im esp-p4d). Der Slide ist nur an, solange die Heizung hier
   eingerichtet ist; ausblenden wie jeden Slide unter *Anzeige*. Ältere Infoscreen-Firmware ignoriert die
   Heizungsdaten einfach. Die Live-Slides auf der Startseite zeigen ihn ebenfalls.
+  Ab 0.9.2 gehen die Namen gekürzt an den Slide („Puffertemperatur Mitte“ → „Puffer mitte“,
+  „Kesseltemperatur“ → „Kessel“, „Empfohlene Holzmenge beim Nachlegen“ → „Holz nachlegen“), damit Name und
+  Wert gleich groß stehen können (Infoscreen-Firmware ab 1.4.2); Bot und Weboberfläche zeigen weiter die vollen Namen.
 
 ---
 

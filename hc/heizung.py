@@ -224,6 +224,27 @@ def offline_reason(now_ts: float | None = None) -> str:
 
 SCREEN_VALUES = 12           # so viele Werte zeigt der Infoscreen-Slide (2 Spalten x 6)
 
+# Kurznamen fuer den Slide (Name und Wert stehen dort gleich gross, ~14 Zeichen Platz)
+SHORT_NAMES = {
+    "solarfühler pufferunten": "Solar unten",
+    "empfohlene holzmenge beim nachlegen": "Holz nachlegen",
+    "vorlauf-isttemperatur": "Vorlauf ist",
+    "vorlauf-solltemperatur": "Vorlauf soll",
+}
+
+
+def short_name(n: str) -> str:
+    """'Puffertemperatur Mitte' -> 'Puffer mitte', 'Kesseltemperatur' -> 'Kessel'.
+    Unbekannte Namen ohne 'temperatur' bleiben wie sie sind."""
+    s = (n or "").strip()
+    if s.lower() in SHORT_NAMES:
+        return SHORT_NAMES[s.lower()]
+    words = s.split()
+    if words and words[0].lower().endswith("temperatur") and len(words[0]) > len("temperatur"):
+        head = words[0][:-len("temperatur")].rstrip("-")
+        return " ".join([head] + [w.lower() if w.lower() in ("oben", "mitte", "unten") else w for w in words[1:]])
+    return s
+
 
 def screen_block() -> dict | None:
     """Block "heizung" fuer /api/v1/screen (Infoscreen-Slide, ab Firmware 1.4.0).
@@ -242,7 +263,7 @@ def screen_block() -> dict | None:
         "mode": str(j.get("mode") or "")[:31],
         "state": str(j.get("state") or "")[:47],
         "error": str(j.get("error") or "")[:63],
-        "values": [{"n": str(v.get("n") or v.get("k") or "")[:39], "v": fmt_value(v)[:23]}
+        "values": [{"n": short_name(str(v.get("n") or v.get("k") or ""))[:39], "v": fmt_value(v)[:23]}
                    for v in (j.get("values") or [])[:SCREEN_VALUES]],
     }
 
