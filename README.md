@@ -19,8 +19,9 @@ Kopplung, Betrieb, Fehlersuche).
   mit API-Schlüssel) in die Telegram-Gruppe, optional auch an ntfy; umgekehrt Warnungen (DWD, NINA/KATWARN,
   Windböen) in einen freigegebenen Mesh-Kanal (Admin-Guide 3.6)
 - **Heizung (esp-p4d)**: Zustand, Störung und Werte einer Fröling-Heizung (Lambdatronic S3200) vom
-  esp-p4d (ESP32 an COM1, API mit Schlüssel) – Karte auf der Startseite, `@bot heizung`, Meldung bei
-  Störung oder wenn keine Daten mehr kommen; **Verlauf** aller Heizungs-, Innenraum- und Wetterwerte
+  esp-p4d (ESP32 an COM1, API mit Schlüssel) – Karte auf der Startseite, `@bot heizung`,
+  `@bot heizung verlauf [h]` (Diagramm), Meldung bei Störung, bei „Feuer aus“ (mit Heizdauer, Puffer,
+  Holzmenge) oder wenn keine Daten mehr kommen; **Verlauf** aller Heizungs-, Innenraum- und Wetterwerte
   plus stündliche Vorhersage (Open-Meteo) als Grundlage einer späteren Anfeuer-Empfehlung (Admin-Guide 3.7)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
   **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)

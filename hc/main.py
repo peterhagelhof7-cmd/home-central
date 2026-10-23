@@ -27,7 +27,7 @@ from . import config, device, heizung, history, meshcore, net, ntfy, poller, tel
 from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 

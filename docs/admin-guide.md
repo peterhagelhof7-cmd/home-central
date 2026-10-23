@@ -249,11 +249,22 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
   nur, wenn dort mDNS-Namensauflösung (`libnss-mdns`) eingerichtet ist.
 - Abfrage alle 30 s. Die Startseite zeigt eine Karte **Heizung** mit Zustand, Störung und Werten.
 - Telegram: **`@bot heizung`** antwortet mit Zustand, Störung und den Werten (höchstens 30).
+- Telegram (ab 0.8.0): **`@bot heizung verlauf`** schickt ein Diagramm der letzten 12 h aus dem
+  Verlauf (unten), **`@bot heizung verlauf 24`** für 24 h (1–168). Oben Kessel, Puffer oben/mitte/unten
+  und Warmwasser, darunter Abgas; grau = Feuer an. Welche Werte das sind, legt die **Zuordnung** auf
+  der Seite *Verlauf* fest. Braucht auf dem Server `python3-matplotlib` (installiert `install.sh`
+  ab 0.8.0; bei älteren Installationen einmal
+  `sudo apt install --no-install-recommends python3-matplotlib`, ca. 70 MB).
 - **Meldungen** (in die Telegram-Gruppe, zusätzlich an ntfy, wenn dort Warnungen an sind):
   - **Störung**: Meldet der Kessel eine Störung, kommt sie einmal; eine andere Störung wird neu gemeldet,
     danach „Heizungsstörung behoben“.
   - **ohne Daten**: Ist das esp-p4d länger als 10 min nicht erreichbar oder antwortet der Kessel dem
     esp-p4d so lange nicht, kommt eine Meldung; wenn wieder Daten kommen, eine Entwarnung.
+  - **Feuer aus** (ab 0.8.0): Wechselt der Kessel nach „Anheizen“/„Heizen“ auf „Feuer Aus“
+    (Zwischenzustände wie „Ausbrand“ oder „Tür offen“ sind egal), kommt eine Meldung mit Heizdauer,
+    Puffer oben/mitte/unten (laut Zuordnung), Pufferladezustand und empfohlener Holzmenge (sofern der
+    Kessel diese Werte liefert). Startete home-central erst während des Heizens, wird der Beginn aus dem
+    Verlauf genommen, sonst steht „mind.“ vor der Dauer.
 - Die Heizungs-Einstellungen gehen nicht in die Einstellungs-Kopie für den Infoscreen.
 - **Verlauf** (ab 0.7.0, Seite *Verlauf* oben auf der Übersicht): Grundlage für die geplante
   Anfeuer-Empfehlung. Alle 5 min zeichnet home-central **alle** Werte des esp-p4d auf, dazu Innenraum

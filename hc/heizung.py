@@ -11,6 +11,8 @@ Meldungen (Telegram/ntfy ueber telegram._warn):
   - Stoerung: neuer Stoerungstext -> einmal melden; weg -> "behoben"
   - nicht erreichbar: esp-p4d antwortet nicht ODER Kessel antwortet dem esp-p4d
     nicht, jeweils laenger als OFFLINE_AFTER -> einmal melden; zurueck -> melden
+  - Feuer aus: Zustand war "Anheizen"/"Heizen" und ist jetzt "Feuer Aus"
+    (Zwischenzustaende wie "Ausbrand" oder "Tür offen" dazwischen sind egal)
 """
 import logging
 import time
@@ -59,14 +61,39 @@ async def poll():
 
 # --- Zustand fuer die Meldungen ------------------------------------------------
 # kessel_off_since: seit wann der esp-p4d "online: false" meldet (0 = Kessel ok)
-_st = {"kessel_off_since": 0.0}
+# fire_since: seit wann Feuer (0 = keins); fire_known: Beginn gesehen (nicht erst
+# nach einem Neustart von home-central mitten im Heizen)
+# fire_events: abgeschlossene Heizphasen [(beginn, ende, beginn_bekannt)] fuer telegram
+_st = {"kessel_off_since": 0.0, "fire_since": 0.0, "fire_known": False, "state_seen": False}
+fire_events: list[tuple[float, float, bool]] = []
 
 
-def _track(j: dict):
+def is_burning(state: str) -> bool:
+    """S3200-Zustandstext: "Anheizen", "Heizen" (Gross-/Kleinschreibung egal)."""
+    return "heizen" in (state or "").lower()
+
+
+def is_fire_off(state: str) -> bool:
+    return (state or "").strip().lower() == "feuer aus"
+
+
+def _track(j: dict, now_ts: float | None = None):
+    now_ts = now_ts or time.time()
     if j.get("online"):
         _st["kessel_off_since"] = 0.0
     elif not _st["kessel_off_since"]:
-        _st["kessel_off_since"] = time.time()
+        _st["kessel_off_since"] = now_ts
+    if not j.get("online"):
+        return
+    state = str(j.get("state") or "")
+    if is_burning(state) and not _st["fire_since"]:
+        _st["fire_since"] = now_ts
+        _st["fire_known"] = _st["state_seen"]   # erster Abruf nach Start: Beginn unbekannt
+    elif is_fire_off(state) and _st["fire_since"]:
+        fire_events.append((_st["fire_since"], now_ts, _st["fire_known"]))
+        del fire_events[:-5]
+        _st["fire_since"] = 0.0
+    _st["state_seen"] = True
 
 
 def offline_reason(now_ts: float | None = None) -> str:

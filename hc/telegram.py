@@ -8,11 +8,12 @@ import logging
 import re
 import time
 from collections import deque
-from datetime import date
+from datetime import date, datetime
 
-from . import config, device, heizung, meshcore, net, ntfy, poller
+from . import config, device, heizchart, heizung, meshcore, net, ntfy, poller
+from .history import roles as hz_roles   # "history" ist hier der Chatverlauf
 from .sources import extra, kalender, simple
-from .tz import now, today_iso
+from .tz import TZ, now, today_iso
 
 log = logging.getLogger("telegram")
 API = "https://api.telegram.org/bot"
@@ -57,6 +58,21 @@ async def send(text: str, fwd: bool = True) -> bool:
         return False
     if fwd:
         await ntfy.bot_message(_st["botname"] or "Bot", text)
+    return True
+
+
+async def send_photo(png: bytes, caption: str) -> bool:
+    """Bild in die Gruppe (nicht an ntfy - dort nur Text)."""
+    if not configured():
+        return False
+    try:
+        r = await net.client.post(f"{API}{config.get('tg_token')}/sendPhoto",
+                                  data={"chat_id": config.get("tg_chat"), "caption": caption[:1000]},
+                                  files={"photo": ("heizung.png", png, "image/png")}, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        log.warning("sendPhoto fehlgeschlagen: %s", e)
+        return False
     return True
 
 
@@ -333,6 +349,20 @@ async def cmd_heizung():
     await send(heizung.build_text(poller.data("heizung"), age, p.error if p else ""))
 
 
+async def cmd_heizung_verlauf(low: str):
+    """'heizung verlauf [stunden]' -> Diagramm aus der Verlaufs-Datenbank."""
+    m = re.search(r"verlauf\s+(\d{1,3})", low)
+    hours = int(m.group(1)) if m else heizchart.DEFAULT_HOURS
+    try:
+        png, cap = await asyncio.to_thread(heizchart.render, hours)
+    except heizchart.NoMatplotlib as e:
+        return await send(f"\U0001F525 Heizungsverlauf: Diagramm nicht möglich ({e}).")
+    except ValueError as e:
+        return await send(f"\U0001F525 Heizungsverlauf: {e}.")
+    if not await send_photo(png, cap):
+        await send("\U0001F525 Heizungsverlauf: Bild konnte nicht gesendet werden.")
+
+
 async def send_help():
     await send(
         f"\U0001F916 Kommandos (@{_st['botname'] or 'bot'} ...):\n"
@@ -350,6 +380,7 @@ async def send_help():
         "• nacht – sichtbare Satelliten + Asteroiden\n"
         "• kurse – BTC und EUR-USD (24h-Trend)\n"
         "• heizung – Zustand, Störung und Werte der Heizung (esp-p4d)\n"
+        f"• heizung verlauf [Stunden] – Temperatur-Diagramm (ohne Angabe {heizchart.DEFAULT_HOURS} h)\n"
         "• kino – aktuelles Kinoprogramm\n"
         "• kino preview – Programm ab nächster Woche\n"
         "• neu termin JJJJ-MM-TT Text – Termin anlegen")
@@ -379,6 +410,8 @@ async def handle_command(text: str):
         return await cmd_nacht()
     if "kurse" in low:
         return await cmd_kurse()
+    if "heizung" in low and "verlauf" in low:
+        return await cmd_heizung_verlauf(low)
     if "heizung" in low:
         return await cmd_heizung()
     if "reboot" in low:
@@ -486,9 +519,45 @@ async def _clear(kind: str, text: str):
     _warned.pop(("mesh", kind), None)
 
 
+def _dur(sec: float) -> str:
+    m = int(sec // 60)
+    return f"{m // 60} h {m % 60:02d} min" if m >= 60 else f"{m} min"
+
+
+async def fire_off_text(start: float, end: float, known: bool) -> str:
+    """Meldung 'Feuer aus' mit Heizdauer, Puffer und den Kessel-Werten dazu."""
+    if not known:   # home-central lief beim Anheizen nicht: Beginn aus dem Verlauf
+        spans = await asyncio.to_thread(heizchart.fire_spans, int(end) - 86400, int(end))
+        if spans and spans[-1][0] < start:
+            start, known = spans[-1][0], True
+    def t(ts):
+        return datetime.fromtimestamp(ts, TZ).strftime("%H:%M")
+    lines = ["\U0001F525 Heizung: Feuer aus.",
+             f"Heizphase {t(start)}–{t(end)} ({'' if known else 'mind. '}{_dur(end - start)})"]
+    try:
+        vals = (await heizung._get("/api/v1/values")).get("values") or []
+    except Exception:  # noqa: BLE001 - Meldung dann ohne Werte
+        vals = []
+    by_key = {v.get("k"): v for v in vals}
+    roles = hz_roles()
+    puffer = [by_key.get(roles.get(r)) for r in ("puffer_oben", "puffer_mitte", "puffer_unten")]
+    if all(p and p.get("v") is not None for p in puffer):
+        lines.append("Puffer oben/mitte/unten: " + " / ".join(f"{p['v']:.0f}" for p in puffer) + " °C")
+    for word in ("pufferladezustand", "holzmenge"):
+        v = next((x for x in vals if word in str(x.get("n") or "").lower() and x.get("v") is not None), None)
+        if v:
+            lines.append(f"{v['n']}: {heizung.fmt_value(v)}")
+    return "\n".join(lines)
+
+
 async def _check_heizung():
     if not heizung.enabled():
+        heizung.fire_events.clear()
         return
+    while heizung.fire_events:
+        start, end, known = heizung.fire_events.pop(0)
+        if config.get("hz_push_fire") == "1" and time.time() - end < 3600:
+            await _warn("hz_fire", str(int(end)), await fire_off_text(start, end, known))
     j = poller.data("heizung") or {}
     if config.get("hz_push_err") == "1":
         err = j.get("error")
