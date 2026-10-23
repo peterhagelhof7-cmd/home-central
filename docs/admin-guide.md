@@ -237,7 +237,8 @@ einen MeshCore-Kanal schicken. So erreichen sie auch Leute ohne Internet.
 
 ### 3.7 Heizung über esp-p4d (ab 0.5.0)
 
-Das **esp-p4d** (Firmware ab 0.2.0) liest eine Fröling-Heizung (Lambdatronic S3200) über deren
+Das **[esp-p4d](https://github.com/peterhagelhof7-cmd/esp-p4d)** (Firmware ab 0.2.0, Vitalwerte ab 0.3.0;
+[Web-Flasher](https://peterhagelhof7-cmd.github.io/esp-p4d/)) liest eine Fröling-Heizung (Lambdatronic S3200) über deren
 Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung und Werte.
 
 1. Im esp-p4d: **Einstellungen → API für home-central**, Schlüssel kopieren. Unter **Werte** die Werte
