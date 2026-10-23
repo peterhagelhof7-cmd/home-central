@@ -27,7 +27,7 @@ from . import config, device, heizung, history, meshcore, net, ntfy, poller, tel
 from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -205,7 +205,8 @@ async def settings_get(req: Request, msg: str = ""):
 
 SECRET_KEYS = {"owm_key", "n2yo_key", "nasa_key", "tg_token", "mc_key", "hz_key"}
 SLIDE_KEY = re.compile(r"^sl_[a-z0-9_]{1,12}$")
-INT_LIMITS = {"brightness": (5, 100), "bl_floor": (0, 95), "slide_sec": (3, 120)}
+INT_LIMITS = {"brightness": (5, 100), "bl_floor": (0, 95), "slide_sec": (3, 120),
+              "hz_buf_min": (0, 90), "hz_buf_max": (20, 100)}
 
 
 @app.post("/settings/save")

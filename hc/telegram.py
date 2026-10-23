@@ -543,10 +543,17 @@ async def fire_off_text(start: float, end: float, known: bool) -> str:
     puffer = [by_key.get(roles.get(r)) for r in ("puffer_oben", "puffer_mitte", "puffer_unten")]
     if all(p and p.get("v") is not None for p in puffer):
         lines.append("Puffer oben/mitte/unten: " + " / ".join(f"{p['v']:.0f}" for p in puffer) + " °C")
-    for word in ("pufferladezustand", "holzmenge"):
-        v = next((x for x in vals if word in str(x.get("n") or "").lower() and x.get("v") is not None), None)
-        if v:
-            lines.append(f"{v['n']}: {heizung.fmt_value(v)}")
+    def find(word):
+        return next((x for x in vals if word in str(x.get("n") or "").lower() and x.get("v") is not None), None)
+    own = heizung.buffer_charge([p["v"] for p in puffer]) if all(p and p.get("v") is not None for p in puffer) else None
+    kessel = find("pufferladezustand")
+    if own is not None:
+        lines.append(f"Pufferladezustand: {own} % (berechnet, {config.get('hz_buf_min')}–{config.get('hz_buf_max')} °C)"
+                     + (f" · Kessel {heizung.fmt_value(kessel)}" if kessel else ""))
+    elif kessel:
+        lines.append(f"{kessel['n']}: {heizung.fmt_value(kessel)}")
+    if (v := find("holzmenge")):
+        lines.append(f"{v['n']}: {heizung.fmt_value(v)}")
     return "\n".join(lines)
 
 

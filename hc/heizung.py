@@ -247,6 +247,19 @@ def screen_block() -> dict | None:
     }
 
 
+def buffer_charge(temps: list[float]) -> int | None:
+    """Eigener Pufferladezustand in % aus Puffer oben/mitte/unten: je Fuehler linear zwischen
+    hz_buf_min (0 %) und hz_buf_max (100 %), gemittelt. None = Werte fehlen/Grenzen unsinnig."""
+    try:
+        lo, hi = float(config.get("hz_buf_min")), float(config.get("hz_buf_max"))
+    except (TypeError, ValueError):
+        return None
+    if not temps or hi <= lo:
+        return None
+    parts = [max(0.0, min(1.0, (t - lo) / (hi - lo))) for t in temps]
+    return round(100 * sum(parts) / len(parts))
+
+
 def fmt_value(v: dict) -> str:
     val = v.get("v")
     if val is None:

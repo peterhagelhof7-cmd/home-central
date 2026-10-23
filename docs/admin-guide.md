@@ -266,6 +266,11 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     Puffer oben/mitte/unten (laut Zuordnung), Pufferladezustand und empfohlener Holzmenge (sofern der
     Kessel diese Werte liefert). Startete home-central erst während des Heizens, wird der Beginn aus dem
     Verlauf genommen, sonst steht „mind.“ vor der Dauer.
+    Ab 0.9.1 rechnet home-central den Pufferladezustand zusätzlich selbst aus oben/mitte/unten: je
+    Fühler linear zwischen „0 % bei“ (Standard 30 °C) und „100 % bei“ (Standard 80 °C), gemittelt;
+    beide Grenzen unter *Einstellungen → Heizung*. Der Wert des Kessels steht dahinter („· Kessel 65 %“).
+    Grund: Der Kessel kann Fühler einrechnen, die gar nicht im Puffer sitzen (bei der S3200 hier ist
+    „Puffertemperatur Fühler 2“ derselbe Eingang wie der Kollektorfühler).
   - **Zustand des esp-p4d** (ab 0.9.0, esp-p4d-Firmware ab 0.3.0; Abruf von `/api/v1/status` jede
     Minute): Neustart nach Absturz, Watchdog oder Spannungseinbruch (normale Neustarts wie Update
     oder Strom an nicht); WLAN-Signal länger als 10 min unter −80 dBm (Entwarnung ab −75 dBm); Chip
