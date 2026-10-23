@@ -13,6 +13,9 @@ Meldungen (Telegram/ntfy ueber telegram._warn):
     nicht, jeweils laenger als OFFLINE_AFTER -> einmal melden; zurueck -> melden
   - Feuer aus: Zustand war "Anheizen"/"Heizen" und ist jetzt "Feuer Aus"
     (Zwischenzustaende wie "Ausbrand" oder "Tür offen" dazwischen sind egal)
+  - Board (esp-p4d ab 0.3.0, /api/v1/status jede Minute): Neustart nach Absturz,
+    Watchdog oder Spannungseinbruch; WLAN-Signal laenger schwach; Chip zu warm;
+    Speicher knapp; COM1-Fehlerquote hoch (vital_problems())
 """
 import logging
 import time
@@ -24,8 +27,19 @@ log = logging.getLogger("heizung")
 OFFLINE_AFTER = 10 * 60      # so lange ohne Daten bzw. Kessel stumm -> Meldung
 MAX_LINES = 30               # Werte je Telegram-Antwort
 
+# Board-Vitalwerte: Abruf und Schwellen (Warnung / Entwarnung mit Abstand)
+VITAL_EVERY = 60
+RSSI_WARN, RSSI_OK, RSSI_AFTER = -80, -75, 10 * 60   # dBm; erst nach 10 min schwach melden
+TEMP_WARN, TEMP_OK = 75.0, 70.0                       # °C Chip (liegt ueber Raumtemperatur)
+HEAP_WARN = 20 * 1024                                 # kleinster freier Speicher seit Start
+COM_FAIL_WARN, COM_FAIL_OK = 0.10, 0.02               # Anteil Fehler je Werte-Runde
+RESET_TEXT = {"poweron": "Strom an", "ext": "Reset-Taste", "sw": "Software/Update", "panic": "Absturz",
+              "int_wdt": "Watchdog", "task_wdt": "Watchdog", "wdt": "Watchdog", "brownout": "Spannungseinbruch"}
+
 # Fuer Einstellungsseite/Bot: letzter Verbindungstest bzw. Abruf
 last = {"name": "", "count": 0}
+# Letzter /api/v1/status (device + kessel), ts = Abrufzeit; leer bei Firmware < 0.3.0
+vital: dict = {"ts": 0.0, "device": {}, "kessel": {}}
 
 
 def base_url() -> str:
@@ -56,7 +70,103 @@ async def poll():
         raise RuntimeError("Antwort ist keine esp-p4d-Zusammenfassung")
     last.update(name=j.get("name", ""), count=len(j.get("values") or []))
     _track(j)
+    if time.time() - vital["ts"] >= VITAL_EVERY:
+        try:
+            s = await _get("/api/v1/status")
+            vital.update(ts=time.time(), device=s.get("device") or {}, kessel=s.get("kessel") or {})
+        except Exception as e:  # noqa: BLE001 - Kesseldaten sind wichtiger; naechster Versuch in 1 min
+            vital["ts"] = time.time()
+            log.warning("esp-p4d /api/v1/status: %s", e)
     return j
+
+
+def vital_fresh(now_ts: float | None = None) -> bool:
+    return bool(vital["device"].get("vital")) and (now_ts or time.time()) - vital["ts"] < 3 * VITAL_EVERY
+
+
+def vital_values() -> list[tuple[str, str, str, float]]:
+    """Fuer den Verlauf: [(schluessel, name, einheit, wert)] - nur mit frischen Daten."""
+    if not vital_fresh():
+        return []
+    d, k = vital["device"], vital["kessel"]
+    v, w = d.get("vital") or {}, d.get("wlan") or {}
+    out = [("rssi", "esp-p4d WLAN-Signal", "dBm", w.get("rssi") if w.get("connected") else None),
+           ("chip_temp", "esp-p4d Chip-Temperatur", "°C", v.get("chipTemp")),
+           ("heap_free", "esp-p4d freier Speicher", "KB", (v.get("heapFree") or 0) / 1024 or None),
+           ("heap_min", "esp-p4d kleinster freier Speicher", "KB", (v.get("heapMin") or 0) / 1024 or None),
+           ("loop_max", "esp-p4d längster Schleifendurchlauf", "ms", v.get("loopMaxMs")),
+           ("com_round", "esp-p4d COM1-Runde", "s", k.get("roundSec")),
+           ("com_fail", "esp-p4d COM1-Fehler je Runde", "", k.get("roundFailures"))]
+    return [(key, name, unit, float(val)) for key, name, unit, val in out if isinstance(val, (int, float))]
+
+
+_vst = {"boots": None, "weak_since": 0.0}
+
+
+def vital_problems(now_ts: float | None = None) -> dict[str, tuple[str, str] | None]:
+    """{art: (schluessel, text) | None}. None = Entwarnung bzw. nichts. Arten:
+    p4d_reset (nur Ereignis, keine Entwarnung), p4d_rssi, p4d_temp, p4d_heap, p4d_com.
+    Leer, solange keine frischen Vitalwerte da sind."""
+    now_ts = now_ts or time.time()
+    if not vital_fresh(now_ts):
+        return {}
+    d, k = vital["device"], vital["kessel"]
+    v, w = d.get("vital") or {}, d.get("wlan") or {}
+    out: dict[str, tuple[str, str] | None] = {}
+
+    boots = v.get("boots")
+    prev, _vst["boots"] = _vst["boots"], boots
+    if prev is not None and boots and boots != prev and v.get("abnormalReset"):
+        why = RESET_TEXT.get(v.get("resetReason"), v.get("resetReason") or "?")
+        out["p4d_reset"] = (str(boots), f"⚠ esp-p4d neu gestartet nach {why} (Start Nr. {boots}).")
+
+    rssi = w.get("rssi") if w.get("connected") else None
+    if isinstance(rssi, (int, float)) and rssi < RSSI_WARN:
+        _vst["weak_since"] = _vst["weak_since"] or now_ts
+        if now_ts - _vst["weak_since"] >= RSSI_AFTER:
+            out["p4d_rssi"] = ("on", f"\U0001F4F6 esp-p4d: WLAN-Signal schwach ({rssi} dBm, seit über "
+                                     f"{RSSI_AFTER // 60} min, Access Point {w.get('bssid') or '?'}).")
+    elif isinstance(rssi, (int, float)) and rssi >= RSSI_OK:
+        _vst["weak_since"] = 0.0
+        out["p4d_rssi"] = None
+
+    t = v.get("chipTemp")
+    if isinstance(t, (int, float)):
+        if t >= TEMP_WARN:
+            out["p4d_temp"] = ("on", f"\U0001F321 esp-p4d: Chip sehr warm ({t:.0f} °C).")
+        elif t < TEMP_OK:
+            out["p4d_temp"] = None
+
+    hm = v.get("heapMin")
+    if isinstance(hm, (int, float)):
+        out["p4d_heap"] = ((str(boots), f"⚠ esp-p4d: Speicher knapp (kleinster freier Wert {hm / 1024:.0f} KB) "
+                                        "– Neustart empfohlen.") if hm < HEAP_WARN else None)
+
+    polls, fails = k.get("roundPolls") or 0, k.get("roundFailures") or 0
+    if polls >= 20:
+        rate = fails / polls
+        if rate >= COM_FAIL_WARN:
+            out["p4d_com"] = ("on", f"⚠ esp-p4d: COM1 gestört ({fails} von {polls} Abfragen der letzten "
+                                    "Runde fehlgeschlagen) – Kabel/Stecker prüfen.")
+        elif rate <= COM_FAIL_OK:
+            out["p4d_com"] = None
+    return out
+
+
+def vital_line() -> str:
+    """Eine Zeile fuer die Bot-Antwort 'heizung'."""
+    if not vital_fresh():
+        return ""
+    d = vital["device"]
+    v, w = d.get("vital") or {}, d.get("wlan") or {}
+    up = int(d.get("uptime") or 0)
+    parts = [f"Signal {w.get('rssi')} dBm" if w.get("connected") else "WLAN getrennt"]
+    if isinstance(v.get("chipTemp"), (int, float)):
+        parts.append(f"Chip {v['chipTemp']:.0f} °C")
+    parts.append(f"läuft seit {up // 86400} d {up % 86400 // 3600} h" if up >= 86400 else
+                 f"läuft seit {up // 3600} h {up % 3600 // 60} min")
+    parts.append(f"Start Nr. {v.get('boots')} ({RESET_TEXT.get(v.get('resetReason'), v.get('resetReason'))})")
+    return "\U0001F4DF esp-p4d: " + ", ".join(parts)
 
 
 # --- Zustand fuer die Meldungen ------------------------------------------------
@@ -173,4 +283,6 @@ def build_text(j: dict | None, age: int = -1, err: str = "") -> str:
         lines.append(f"… und {len(vals) - MAX_LINES} weitere (Auswahl im esp-p4d unter „Werte“)")
     if not vals:
         lines.append("(noch keine Werte – Werte-Katalog wird gelesen oder Kessel stumm)")
+    if vital_line():
+        lines.append(vital_line())
     return "\n".join(lines)

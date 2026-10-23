@@ -265,6 +265,13 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     Puffer oben/mitte/unten (laut Zuordnung), Pufferladezustand und empfohlener Holzmenge (sofern der
     Kessel diese Werte liefert). Startete home-central erst während des Heizens, wird der Beginn aus dem
     Verlauf genommen, sonst steht „mind.“ vor der Dauer.
+  - **Zustand des esp-p4d** (ab 0.9.0, esp-p4d-Firmware ab 0.3.0; Abruf von `/api/v1/status` jede
+    Minute): Neustart nach Absturz, Watchdog oder Spannungseinbruch (normale Neustarts wie Update
+    oder Strom an nicht); WLAN-Signal länger als 10 min unter −80 dBm (Entwarnung ab −75 dBm); Chip
+    ab 75 °C (Entwarnung unter 70 °C); kleinster freier Speicher unter 20 KB; mehr als 10 % Fehler bei
+    den COM1-Abfragen einer Werte-Runde (Entwarnung ab 2 %). `@bot heizung` hängt eine Zeile mit
+    Signal, Chip-Temperatur, Laufzeit und Neustart-Grund an. Der Verlauf zeichnet unter „p4d“ Signal,
+    Chip-Temperatur, Speicher, längsten Schleifendurchlauf und COM1-Runde mit auf.
 - Die Heizungs-Einstellungen gehen nicht in die Einstellungs-Kopie für den Infoscreen.
 - **Verlauf** (ab 0.7.0, Seite *Verlauf* oben auf der Übersicht): Grundlage für die geplante
   Anfeuer-Empfehlung. Alle 5 min zeichnet home-central **alle** Werte des esp-p4d auf, dazu Innenraum

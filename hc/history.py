@@ -3,6 +3,7 @@
 SQLite-Datei DATA_DIR/history.db (Python-Standardbibliothek, keine Pakete).
 Alle 5 min (auf 5 min ausgerichtet) werden aufgezeichnet:
   - hz:       ALLE Werte des esp-p4d (/api/v1/values, Schluessel = Adresse im Kessel)
+  - p4d:      Vitalwerte des esp-p4d selbst (Signal, Chip-Temperatur, Speicher, COM1-Runde)
   - innen:    Temperatur/Feuchte vom Infoscreen (DHT22)
   - spessart: Temperatur, Wind, Boeen
   - owm:      Temperatur, Luftfeuchte
@@ -314,6 +315,7 @@ async def collect(ts: int) -> tuple[list, list]:
         if s and p and p.ok_ts and ts - p.ok_ts < 2 * STEP:
             states += [("hz", "online", "1" if s.get("online") else "0"), ("hz", "mode", s.get("mode") or ""),
                        ("hz", "state", s.get("state") or ""), ("hz", "error", s.get("error") or "")]
+        values += [("p4d", key, name, unit, v) for key, name, unit, v in heizung.vital_values()]
     r = device.report().get("dht22") or {}
     if device.online() and r.get("valid"):
         values += [("innen", "temp", "Innenraum Temperatur", "°C", float(r["temp_c"])),

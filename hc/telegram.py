@@ -558,6 +558,17 @@ async def _check_heizung():
         start, end, known = heizung.fire_events.pop(0)
         if config.get("hz_push_fire") == "1" and time.time() - end < 3600:
             await _warn("hz_fire", str(int(end)), await fire_off_text(start, end, known))
+    if config.get("hz_push_vital") == "1":
+        clear = {"p4d_rssi": "✅ esp-p4d: WLAN-Signal wieder gut.", "p4d_temp": "✅ esp-p4d: Chip-Temperatur wieder normal.",
+                 "p4d_heap": None, "p4d_com": "✅ esp-p4d: COM1 wieder ohne Fehler."}
+        for kind, hit in heizung.vital_problems().items():
+            if hit:
+                await _warn(kind, *hit)
+            elif clear.get(kind):
+                await _clear(kind, clear[kind])
+            else:
+                _warned.pop(("tg", kind), None)   # ohne Entwarnungstext: nur zuruecksetzen
+                _warned.pop(("ntfy", kind), None)
     j = poller.data("heizung") or {}
     if config.get("hz_push_err") == "1":
         err = j.get("error")
