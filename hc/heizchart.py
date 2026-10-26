@@ -2,7 +2,7 @@
 
 Quelle ist die Verlaufs-Datenbank (history), Zuordnung ueber die Rollen
 (Einstellungen -> Heizung). Zwei Felder uebereinander statt zweiter y-Achse:
-oben Kessel/Puffer/Warmwasser, unten Abgas (anderer Wertebereich). Phasen mit
+oben Kessel/Puffer/Warmwasser/Innen (Infoscreen), unten Abgas (anderer Wertebereich). Phasen mit
 Feuer (ab "Anheizen"/"Heizen" bis "Feuer Aus") sind grau hinterlegt.
 
 Braucht python3-matplotlib (deploy/install.sh); fehlt es, meldet der Bot das.
@@ -19,9 +19,9 @@ MAX_HOURS = 7 * 24
 
 # (Rolle, Beschriftung) - Reihenfolge = feste Farbreihenfolge (dataviz-Referenzpalette)
 TOP = [("kessel", "Kessel"), ("puffer_oben", "Puffer oben"), ("puffer_mitte", "Puffer mitte"),
-       ("puffer_unten", "Puffer unten"), ("warmwasser", "Warmwasser")]
+       ("puffer_unten", "Puffer unten"), ("warmwasser", "Warmwasser"), ("innen", "Innen")]
 BOTTOM = ("abgas", "Abgas")
-COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
+COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#5a5955"]
 BOTTOM_COLOR = "#6250d6"   # eigener Farbton, damit Abgas nicht wie "Kessel" aussieht
 SURFACE, INK, INK2, GRID, FIRE = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df", "#ecebe7"
 
@@ -46,9 +46,12 @@ def fire_spans(since: int, until: int) -> list[tuple[int, int]]:
 
 
 def _series(roles: dict[str, str], since: int, until: int) -> dict[str, dict]:
-    """{rolle: {"unit", "points"}} fuer die zugeordneten Rollen mit Daten."""
-    sids = {s["key"]: s["id"] for s in history.series_list() if s["src"] == "hz"}
-    want = {sids[k]: rid for rid, k in roles.items() if k in sids}
+    """{rolle: {"unit", "points"}} fuer die zugeordneten Rollen mit Daten,
+    dazu "innen" = Temperatur vom Infoscreen (DHT22)."""
+    sids = {(s["src"], s["key"]): s["id"] for s in history.series_list()}
+    want = {sids[("hz", k)]: rid for rid, k in roles.items() if ("hz", k) in sids}
+    if ("innen", "temp") in sids:
+        want[sids[("innen", "temp")]] = "innen"
     out = {}
     for q in history.query(list(want), since, until, points=300):
         pts = q["points"]

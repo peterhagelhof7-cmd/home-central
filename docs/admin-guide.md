@@ -288,8 +288,11 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     werden höchstens alle 30 min geschrieben; Rohdaten älter als 90 Tage werden nachts zu
     Stundenmitteln verdichtet. Gesichert wird sie mit dem Backup der VM.
   - **Zuordnung:** Auf der Seite *Verlauf* festlegen, welcher Kesselwert Puffer oben/mitte/unten,
-    Warmwasser, Vorlauf, Raum OG, Außen, Kollektor usw. ist. home-central schlägt die Zuordnung anhand
+    Warmwasser, Vorlauf, Außen, Kollektor usw. ist. home-central schlägt die Zuordnung anhand
     der Namen vor (bitte prüfen und speichern). Aufgezeichnet wird unabhängig davon alles.
+  - **Raumtemperatur:** Die S3200-Werte „Raumtemperatur“ (einer je Heizkreis) sind Sollwerte, keine
+    Messwerte (z. B. konstant 20 °C). Seit 0.9.4 gibt es dafür keine Rolle mehr; Web-Diagramm und
+    `heizung verlauf` zeigen stattdessen die Innentemperatur vom Infoscreen (DHT22) als „Innen“.
   - **Diagramm** über 24 h, 7 Tage, 30 Tage oder 1 Jahr; **CSV-Export** (Semikolon, Dezimalkomma).
   - Mischerstellung und Pumpen (z. B. Solarpumpe) sind beim S3200 Ausgänge, die das esp-p4d noch
     nicht liest.

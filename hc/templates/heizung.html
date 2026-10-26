@@ -84,7 +84,7 @@
   // Gezeigte Reihen: zugeordnete Rollen (mit Rollen-Titel), dazu Innenraum und Außenwetter
   const show = [];
   ROLES.forEach((r, i) => { const s = SERIES.find(x => x.src === 'hz' && x.key === ASSIGNED[r]); if (s) show.push({id: s.id, label: TITLES[i], unit: s.unit}); });
-  for (const [src, key, label] of [['innen', 'temp', 'Innenraum'], ['spessart', 'temp', 'Spessartwetter'], ['owm', 'temp', 'OWM']]) {
+  for (const [src, key, label] of [['innen', 'temp', 'Innen (Infoscreen)'], ['spessart', 'temp', 'Spessartwetter'], ['owm', 'temp', 'OWM']]) {
     const s = SERIES.find(x => x.src === src && x.key === key); if (s) show.push({id: s.id, label, unit: s.unit});
   }
   const COL = ['#f5a742', '#8ab4f8', '#ef6b6b', '#7ce38b', '#f5c542', '#c58af9', '#4dd0e1', '#ff8a80', '#a5d6a7',

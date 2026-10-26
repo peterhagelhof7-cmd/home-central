@@ -40,8 +40,10 @@ RAW_DAYS = 90              # aelter -> Stundenmittel
 MAX_AGE_HZ = 2 * STEP      # aelter gemeldete Kesselwerte nicht aufzeichnen
 
 # Rollen fuer Diagramme und die spaetere Empfehlung: (id, Titel, Suchbegriffe)
+# Keine Raum-Rolle: die S3200-Werte "Raumtemperatur" (je Heizkreis) sind Sollwerte
+# (0x0018 konstant 20 °C, die anderen 0/-0,5), die echte Innentemperatur liefert der
+# Infoscreen (Quelle "innen").
 ROLES = [
-    ("raum_og", "Raumtemperatur OG", ["raumtemp", "raum og", "raum"]),
     ("aussen", "Außentemperatur", ["außentemp", "aussentemp", "außen", "aussen"]),
     ("kessel", "Kesseltemperatur", ["kesseltemp", "kessel"]),
     ("abgas", "Abgastemperatur", ["abgastemp", "abgas"]),
@@ -61,7 +63,7 @@ ROLE_IDS = [r[0] for r in ROLES]
 # Vorschlag nur aus Werten mit passender Einheit (Anfang), sonst landet z. B. "Warmwasser"
 # auf "Strömungsschalter an der Brauchwasser Leitung", "Solar" auf der WMZ-Leistung oder
 # "Solarpumpe" auf "Laufzeit Kollektorpumpe" (h). esp-p4d: "°C", vor 0.2.2 nur "°".
-ROLE_UNITS = {rid: "°" for rid in ("raum_og", "aussen", "kessel", "abgas", "puffer_oben", "puffer_mitte",
+ROLE_UNITS = {rid: "°" for rid in ("aussen", "kessel", "abgas", "puffer_oben", "puffer_mitte",
                                    "puffer_unten", "warmwasser", "vorlauf_1", "vorlauf_2", "kollektor",
                                    "solar_speicher")}
 ROLE_UNITS["solar_pumpe"] = "%"
