@@ -11,7 +11,7 @@ from collections import deque
 from datetime import date, datetime
 
 from . import config, device, heizchart, heizung, meshcore, net, ntfy, poller
-from .history import roles as hz_roles   # "history" ist hier der Chatverlauf
+from .history import current_value as hz_current, effective_roles as hz_effective_roles, roles as hz_roles  # "history" = Chatverlauf
 from .sources import extra, kalender, simple
 from .tz import TZ, now, today_iso
 
@@ -23,6 +23,7 @@ TG_TERMINE = 5
 SUMMARY_HOUR = 6
 KINO_SUNDAY_HOUR = 10
 BOE_WARN_KMH = 50.0
+PUFFER_HYST = 3.0   # K: Puffer-mitte-Meldung erst wieder, wenn er so weit ueber Vorlauf-Soll lag
 HW_GLAETTE_C, HW_REGEN_MM, HW_SCHNEE_MM, HW_BOEEN_KMH = 1, 10.0, 1.0, 60
 HW_HITZE_C, HW_NACHTFROST_C, HW_REGEN_AB_MM = 30, 0, 1.0
 
@@ -583,6 +584,17 @@ async def _check_heizung():
             await _warn("hz_err", err, f"\U0001F525\U0001F6A8 Heizungsstörung: {err}")
         elif j:
             await _clear("hz_err", "✅ Heizungsstörung behoben.")
+    if config.get("hz_push_puffer") == "1":
+        roles = hz_effective_roles()
+        mitte, soll = hz_current("puffer_mitte", roles), hz_current("vorlauf_soll", roles)
+        # Soll 0 = Heizkreis aus; waehrend des Heizens laedt der Puffer ohnehin
+        if mitte is not None and soll and not heizung.is_burning(j.get("state")):
+            if mitte < soll:
+                await _warn("hz_puffer", "low", f"\U0001FAB5 Puffer mitte {mitte:.0f} °C liegt unter Vorlauf-Soll "
+                                                f"{soll:.0f} °C – Zeit zum Anheizen.")
+            elif mitte >= soll + PUFFER_HYST:
+                for ch in ("tg", "ntfy", "mesh"):
+                    _warned.pop((ch, "hz_puffer"), None)
     if config.get("hz_push_off") == "1":
         reason = heizung.offline_reason()
         if reason:

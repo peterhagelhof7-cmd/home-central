@@ -51,8 +51,10 @@ ROLES = [
     ("puffer_mitte", "Puffer/Boiler mitte", ["puffer mitte", "puffermitte", "boiler mitte", "puffer m"]),
     ("puffer_unten", "Puffer/Boiler unten", ["puffer unten", "pufferunten", "boiler unten", "puffer u"]),
     ("warmwasser", "Warmwasser", ["warmwasser", "brauchwasser", "boilertemp oben", "boilertemp", "boiler"]),
-    ("vorlauf_1", "Vorlauf Heizkreis 1", ["vorlauftemp 1", "vorlauf 1", "vorlauf hk1", "vorlauf hk 1", "vorlauf"]),
+    ("vorlauf_1", "Vorlauf Heizkreis 1", ["vorlauf isttemp", "vorlauftemp 1", "vorlauf 1", "vorlauf hk1",
+                                          "vorlauf hk 1", "vorlauf ist", "vorlauf"]),
     ("vorlauf_2", "Vorlauf Heizkreis 2", ["vorlauftemp 2", "vorlauf 2", "vorlauf hk2", "vorlauf hk 2"]),
+    ("vorlauf_soll", "Vorlauf-Soll Heizkreis 1", ["vorlauf solltemp", "vorlauf soll", "vl soll"]),
     ("mischer_1", "Mischer Heizkreis 1", ["mischer 1", "mischer hk1", "mischer hk 1", "mischer"]),
     ("mischer_2", "Mischer Heizkreis 2", ["mischer 2", "mischer hk2", "mischer hk 2"]),
     ("kollektor", "Solar-Kollektor", ["kollektortemp", "kollektor"]),
@@ -64,9 +66,13 @@ ROLE_IDS = [r[0] for r in ROLES]
 # auf "Strömungsschalter an der Brauchwasser Leitung", "Solar" auf der WMZ-Leistung oder
 # "Solarpumpe" auf "Laufzeit Kollektorpumpe" (h). esp-p4d: "°C", vor 0.2.2 nur "°".
 ROLE_UNITS = {rid: "°" for rid in ("aussen", "kessel", "abgas", "puffer_oben", "puffer_mitte",
-                                   "puffer_unten", "warmwasser", "vorlauf_1", "vorlauf_2", "kollektor",
+                                   "puffer_unten", "warmwasser", "vorlauf_1", "vorlauf_2", "vorlauf_soll", "kollektor",
                                    "solar_speicher")}
 ROLE_UNITS["solar_pumpe"] = "%"
+
+# Letzte vollstaendige Kesselwerte aus collect() (alle 5 min, nicht nur die
+# Auswahl der Zusammenfassung): {"ts", "values": [{"k", "n", "u", "v"}]}
+current: dict = {"ts": 0, "values": []}
 
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None
@@ -253,6 +259,20 @@ def roles() -> dict[str, str]:
         return {}
 
 
+def effective_roles() -> dict[str, str]:
+    """Gespeicherte Zuordnung, fehlende Rollen aus dem Vorschlag (wie die Seite
+    Verlauf) - neue Rollen wirken so schon vor dem naechsten Speichern."""
+    return {**suggest_roles(current["values"]), **roles()}
+
+
+def current_value(rid: str, roles_: dict[str, str] | None = None) -> float | None:
+    """Aktueller Wert einer Rolle aus der letzten Aufzeichnung (hoechstens 2 Raster alt)."""
+    if time.time() - current["ts"] > 2 * STEP:
+        return None
+    k = (roles_ if roles_ is not None else effective_roles()).get(rid)
+    return next((v["v"] for v in current["values"] if v["k"] == k), None) if k else None
+
+
 def _norm(s: str) -> str:
     s = s.lower().replace("ß", "ss").replace("-", " ").replace("_", " ").replace(".", " ")
     return re.sub(r"\s+", " ", s).strip()
@@ -310,6 +330,8 @@ async def collect(ts: int) -> tuple[list, list]:
                     if v.get("v") is None or v.get("nc") or age is None or age > MAX_AGE_HZ:
                         continue
                     values.append(("hz", v["k"], v.get("n") or v["k"], v.get("u") or "", float(v["v"])))
+                current.update(ts=time.time(), values=[{"k": k, "n": n, "u": u, "v": x}
+                                                       for src, k, n, u, x in values if src == "hz"])
         except Exception as e:  # noqa: BLE001 - dann eben ohne Kesselwerte
             stats["last_error"] = f"esp-p4d: {e}"[:200]
         s = poller.data("heizung") or {}

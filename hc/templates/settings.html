@@ -220,9 +220,10 @@
   <label class="cb"><input type="checkbox" name="hz_push_off" value="1" {{ 'checked' if c.hz_push_off == '1' }}> Heizung länger als 10 min ohne Daten (esp-p4d oder Kessel stumm)</label>
   <label class="cb"><input type="checkbox" name="hz_push_fire" value="1" {{ 'checked' if c.hz_push_fire == '1' }}> Feuer aus nach dem Heizen (Heizdauer, Puffer, Pufferladezustand, empfohlene Holzmenge)</label>
   <label class="cb"><input type="checkbox" name="hz_push_vital" value="1" {{ 'checked' if c.hz_push_vital == '1' }}> Zustand des esp-p4d: Neustart nach Absturz, WLAN länger schwach, Chip zu warm, Speicher knapp, COM1 gestört</label>
+  <label class="cb"><input type="checkbox" name="hz_push_puffer" value="1" {{ 'checked' if c.hz_push_puffer == '1' }}> Puffer mitte unter Vorlauf-Soll (Zeit zum Anheizen; nicht während des Heizens)</label>
   <label>Eigener Pufferladezustand (aus Puffer oben/mitte/unten im Verlauf): 0 % bei … °C / 100 % bei … °C</label>
   <div class="row"><input type="number" name="hz_buf_min" value="{{ c.hz_buf_min }}" min="0" max="90"> <input type="number" name="hz_buf_max" value="{{ c.hz_buf_max }}" min="20" max="100"></div>
-  <input type="hidden" name="_checkboxes" value="hz_on,hz_push_err,hz_push_off,hz_push_fire,hz_push_vital">
+  <input type="hidden" name="_checkboxes" value="hz_on,hz_push_err,hz_push_off,hz_push_fire,hz_push_vital,hz_push_puffer">
   <button type="submit">Speichern</button>
 </form>
   <form method="post" action="/settings/heizung/test"><button class="grey" type="submit">Verbindung testen</button></form>

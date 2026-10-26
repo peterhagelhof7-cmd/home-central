@@ -271,6 +271,11 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     beide Grenzen unter *Einstellungen → Heizung*. Der Wert des Kessels steht dahinter („· Kessel 65 %“).
     Grund: Der Kessel kann Fühler einrechnen, die gar nicht im Puffer sitzen (bei der S3200 hier ist
     „Puffertemperatur Fühler 2“ derselbe Eingang wie der Kollektorfühler).
+  - **Puffer mitte unter Vorlauf-Soll** (ab 0.9.5): Liegt *Puffer mitte* unter der Vorlauf-Solltemperatur
+    von Heizkreis 1 (beide laut Zuordnung auf der Seite *Verlauf*, neue Rolle „Vorlauf-Soll Heizkreis 1“;
+    ohne gespeicherte Zuordnung gilt der Vorschlag), kommt einmal „Zeit zum Anheizen“. Erneut erst,
+    nachdem der Puffer mindestens 3 K über dem Soll lag. Keine Meldung, solange der Kessel „Anheizen“/
+    „Heizen“ meldet oder das Soll 0 ist (Heizkreis aus). Werte aus der 5-min-Aufzeichnung.
   - **Zustand des esp-p4d** (ab 0.9.0, esp-p4d-Firmware ab 0.3.0; Abruf von `/api/v1/status` jede
     Minute): Neustart nach Absturz, Watchdog oder Spannungseinbruch (normale Neustarts wie Update
     oder Strom an nicht); WLAN-Signal länger als 10 min unter −80 dBm (Entwarnung ab −75 dBm); Chip
