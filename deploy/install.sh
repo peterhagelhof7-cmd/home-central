@@ -6,7 +6,7 @@ SRC=$(cd "$(dirname "$0")/.." && pwd)
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get -y -q install python3-fastapi python3-uvicorn python3-httpx python3-jinja2 \
-    python3-multipart python3-itsdangerous chrony avahi-daemon >/dev/null
+    python3-multipart python3-itsdangerous python3-cryptography chrony avahi-daemon >/dev/null
 # Diagramme fuer den Bot (heizung verlauf); ohne Recommends ~70 MB statt ~110 Pakete
 apt-get -y -q install --no-install-recommends python3-matplotlib >/dev/null
 

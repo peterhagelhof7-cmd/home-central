@@ -52,7 +52,7 @@ ssh <user>@<host> 'sudo sh ~/hc-src/deploy/install.sh <web-passwort>'
 `deploy/install.sh` erledigt:
 
 1. Pakete aus Debian: `python3-fastapi python3-uvicorn python3-httpx python3-jinja2
-   python3-multipart python3-itsdangerous chrony avahi-daemon` (keine pip-Pakete).
+   python3-multipart python3-itsdangerous python3-cryptography chrony avahi-daemon` (keine pip-Pakete).
 2. Systembenutzer `home-central`, Datenverzeichnis `/var/lib/home-central` (0750).
 3. Code nach `/opt/home-central` (die vorige Version bleibt als `/opt/home-central.old`).
 4. chrony als LAN-Zeitserver (`/etc/chrony/conf.d/home-central.conf`, `allow <LAN>/24`,
@@ -352,6 +352,12 @@ mDNS-Antworten oft wegen der Firewall nicht – das sagt nichts über den Infosc
 **Quelle rot in der Übersicht.** Fehlermeldung steht darunter. Typisch: Key fehlt/ungültig (OWM,
 N2YO), Fritzbox ohne UPnP-Statusinformationen, Zeitüberschreitung bei NASA (wird nach 15 min erneut
 versucht). Meldet eine Quelle > 1 h Fehler, schickt der Bot einmal „Download-Problem“.
+
+**`CERTIFICATE_VERIFY_FAILED … unable to get local issuer certificate`.** Der Server schickt sein
+Zwischenzertifikat nicht mit (so bei warnung.bund.de/NINA am 26.10.2026). Browser stört das nicht, Python
+schon. Ab 0.9.3 lädt home-central das fehlende Zertifikat einmal über die im Serverzertifikat angegebene
+Adresse (AIA) nach – im Log `Zwischenzertifikat nachgeladen`. Die Kette muss trotzdem bis zu einer
+Wurzel aus `ca-certificates` reichen; selbstsignierte, abgelaufene oder fremde Zertifikate bleiben abgelehnt.
 
 **Bot antwortet nicht / doppelt.** Läuft der Bot noch irgendwo anders mit demselben Token (alter
 Infoscreen im Direkt-Modus, Notbetrieb)? Im Log nach `getUpdates`-Warnungen suchen.
