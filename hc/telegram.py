@@ -24,6 +24,7 @@ SUMMARY_HOUR = 6
 KINO_SUNDAY_HOUR = 10
 BOE_WARN_KMH = 50.0
 FIRE_FAIL_SEC = 30 * 60   # kuerzere Heizphase = "Anheizen fehlgeschlagen" statt "Feuer aus"
+FIRE_FAIL_FULL_PCT = 60     # ab diesem eigenen Pufferladezustand: "Puffer war schon voll" statt "fehlgeschlagen"
 PUFFER_HYST = 3.0   # K: Puffer-mitte-Meldung erst wieder, wenn er so weit ueber Vorlauf-Soll lag
 HW_GLAETTE_C, HW_REGEN_MM, HW_SCHNEE_MM, HW_BOEEN_KMH = 1, 10.0, 1.0, 60
 HW_HITZE_C, HW_NACHTFROST_C, HW_REGEN_AB_MM = 30, 0, 1.0
@@ -531,11 +532,19 @@ def _dur(sec: float) -> str:
 
 
 def fire_failed_text(start: float, end: float) -> str:
-    """Heizphase kuerzer als FIRE_FAIL_SEC: das Holz hat nicht gezuendet."""
+    """Heizphase kuerzer als FIRE_FAIL_SEC. Puffer schon weitgehend geladen -> der Kessel
+    hat vermutlich mangels Platz abgebrochen; sonst hat das Holz nicht gezuendet."""
     def t(ts):
         return datetime.fromtimestamp(ts, TZ).strftime("%H:%M")
-    return (f"\U0001FAB5❌ Heizung: Anheizen fehlgeschlagen – Feuer nach {_dur(end - start)} "
-            f"wieder aus ({t(start)}–{t(end)}). Bitte nachsehen und neu anheizen.")
+    roles = hz_effective_roles()
+    temps = [hz_current(r, roles) for r in ("puffer_oben", "puffer_mitte", "puffer_unten")]
+    charge = heizung.buffer_charge(temps) if all(x is not None for x in temps) else None
+    when = f"Feuer nach {_dur(end - start)} wieder aus ({t(start)}–{t(end)})"
+    if charge is not None and charge >= FIRE_FAIL_FULL_PCT:
+        return (f"\U0001F525 Heizung: {when} – Puffer war schon voll "
+                f"({' / '.join(f'{x:.0f}' for x in temps)} °C, {charge} %). "
+                "Vermutlich hat der Kessel abgebrochen, weil kein Platz mehr war.")
+    return f"\U0001FAB5❌ Heizung: Anheizen fehlgeschlagen – {when}. Bitte nachsehen und neu anheizen."
 
 
 async def fire_off_text(start: float, end: float, known: bool) -> str:

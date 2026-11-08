@@ -267,7 +267,10 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     Kessel diese Werte liefert). Startete home-central erst während des Heizens, wird der Beginn aus dem
     Verlauf genommen, sonst steht „mind.“ vor der Dauer.
     Ab 0.11.0: War die Heizphase kürzer als **30 min**, kommt stattdessen **„Anheizen fehlgeschlagen“**
-    (Holz hat nicht gezündet) mit Dauer und Uhrzeit – gleicher Haken.
+    (Holz hat nicht gezündet) mit Dauer und Uhrzeit – gleicher Haken. Ab 0.11.1: Lag der eigene
+    Pufferladezustand dabei schon bei **60 % oder mehr**, heißt die Meldung stattdessen „Feuer nach … wieder
+    aus – Puffer war schon voll“ (mit Puffer oben/mitte/unten): Dann hat vermutlich der Kessel abgebrochen,
+    weil kein Platz mehr war, und es ist keine Fehlzündung.
     Ebenfalls ab 0.11.0 zeigt „Feuer aus“ die Zeile **„davon Feuererhaltung X h Y min (Z %)“**, berechnet
     aus den aufgezeichneten Kesselzuständen (Raster ca. 5 min). Feuererhaltung ist ineffizient – das Ziel
     ist eine Holzmenge, bei der der Puffer voll wird, ohne dass der Kessel danach lange in Glut weiterläuft.
