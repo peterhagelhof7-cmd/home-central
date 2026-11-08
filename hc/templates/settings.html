@@ -218,7 +218,7 @@
   <label>Meldungen an Telegram (und ntfy, wenn dort Warnungen an sind)</label>
   <label class="cb"><input type="checkbox" name="hz_push_err" value="1" {{ 'checked' if c.hz_push_err == '1' }}> Störung der Heizung (und Entwarnung)</label>
   <label class="cb"><input type="checkbox" name="hz_push_off" value="1" {{ 'checked' if c.hz_push_off == '1' }}> Heizung länger als 10 min ohne Daten (esp-p4d oder Kessel stumm)</label>
-  <label class="cb"><input type="checkbox" name="hz_push_fire" value="1" {{ 'checked' if c.hz_push_fire == '1' }}> Feuer aus nach dem Heizen (Heizdauer, Puffer, Pufferladezustand, empfohlene Holzmenge)</label>
+  <label class="cb"><input type="checkbox" name="hz_push_fire" value="1" {{ 'checked' if c.hz_push_fire == '1' }}> Feuer aus nach dem Heizen (Heizdauer, Puffer, Pufferladezustand, empfohlene Holzmenge); unter 30 min „Anheizen fehlgeschlagen“</label>
   <label class="cb"><input type="checkbox" name="hz_push_vital" value="1" {{ 'checked' if c.hz_push_vital == '1' }}> Zustand des esp-p4d: Neustart nach Absturz, WLAN länger schwach, Chip zu warm, Speicher knapp, COM1 gestört</label>
   <label class="cb"><input type="checkbox" name="hz_push_puffer" value="1" {{ 'checked' if c.hz_push_puffer == '1' }}> Puffer mitte unter Vorlauf-Soll (Zeit zum Anheizen; nicht während des Heizens)</label>
   <label>Eigener Pufferladezustand (aus Puffer oben/mitte/unten im Verlauf): 0 % bei … °C / 100 % bei … °C</label>

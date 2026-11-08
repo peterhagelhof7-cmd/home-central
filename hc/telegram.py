@@ -23,6 +23,7 @@ TG_TERMINE = 5
 SUMMARY_HOUR = 6
 KINO_SUNDAY_HOUR = 10
 BOE_WARN_KMH = 50.0
+FIRE_FAIL_SEC = 30 * 60   # kuerzere Heizphase = "Anheizen fehlgeschlagen" statt "Feuer aus"
 PUFFER_HYST = 3.0   # K: Puffer-mitte-Meldung erst wieder, wenn er so weit ueber Vorlauf-Soll lag
 HW_GLAETTE_C, HW_REGEN_MM, HW_SCHNEE_MM, HW_BOEEN_KMH = 1, 10.0, 1.0, 60
 HW_HITZE_C, HW_NACHTFROST_C, HW_REGEN_AB_MM = 30, 0, 1.0
@@ -529,6 +530,14 @@ def _dur(sec: float) -> str:
     return f"{m // 60} h {m % 60:02d} min" if m >= 60 else f"{m} min"
 
 
+def fire_failed_text(start: float, end: float) -> str:
+    """Heizphase kuerzer als FIRE_FAIL_SEC: das Holz hat nicht gezuendet."""
+    def t(ts):
+        return datetime.fromtimestamp(ts, TZ).strftime("%H:%M")
+    return (f"\U0001FAB5❌ Heizung: Anheizen fehlgeschlagen – Feuer nach {_dur(end - start)} "
+            f"wieder aus ({t(start)}–{t(end)}). Bitte nachsehen und neu anheizen.")
+
+
 async def fire_off_text(start: float, end: float, known: bool) -> str:
     """Meldung 'Feuer aus' mit Heizdauer, Puffer und den Kessel-Werten dazu."""
     if not known:   # home-central lief beim Anheizen nicht: Beginn aus dem Verlauf
@@ -539,6 +548,12 @@ async def fire_off_text(start: float, end: float, known: bool) -> str:
         return datetime.fromtimestamp(ts, TZ).strftime("%H:%M")
     lines = ["\U0001F525 Heizung: Feuer aus.",
              f"Heizphase {t(start)}–{t(end)} ({'' if known else 'mind. '}{_dur(end - start)})"]
+    try:   # Ziel: moeglichst wenig Feuererhaltung (ineffizient)
+        hold = await asyncio.to_thread(heizchart.hold_seconds, int(start), int(end))
+        if hold is not None and end > start:
+            lines.append(f"davon Feuererhaltung {_dur(hold)} ({100 * hold / (end - start):.0f} %)")
+    except Exception:  # noqa: BLE001
+        log.exception("Feuererhaltung berechnen")
     try:
         vals = (await heizung._get("/api/v1/values")).get("values") or []
     except Exception:  # noqa: BLE001 - Meldung dann ohne Werte
@@ -569,7 +584,10 @@ async def _check_heizung():
     while heizung.fire_events:
         start, end, known = heizung.fire_events.pop(0)
         if config.get("hz_push_fire") == "1" and time.time() - end < 3600:
-            await _warn("hz_fire", str(int(end)), await fire_off_text(start, end, known))
+            if known and end - start < FIRE_FAIL_SEC:
+                await _warn("hz_fire", str(int(end)), fire_failed_text(start, end))
+            else:
+                await _warn("hz_fire", str(int(end)), await fire_off_text(start, end, known))
     if config.get("hz_push_vital") == "1":
         clear = {"p4d_rssi": "✅ esp-p4d: WLAN-Signal wieder gut.", "p4d_temp": "✅ esp-p4d: Chip-Temperatur wieder normal.",
                  "p4d_heap": None, "p4d_com": "✅ esp-p4d: COM1 wieder ohne Fehler."}

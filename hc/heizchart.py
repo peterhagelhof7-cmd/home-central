@@ -45,6 +45,26 @@ def fire_spans(since: int, until: int) -> list[tuple[int, int]]:
     return [(max(a, since), b) for a, b in spans if b > since]
 
 
+def hold_seconds(start: int, end: int) -> int | None:
+    """Sekunden in "Feuererhaltung" zwischen start und end (aus den aufgezeichneten
+    Kessel-Zustaenden, Raster ~5 min). None = keine Zustaende aufgezeichnet."""
+    st = [s for s in history.states_between(start - 2 * 86400, end) if s["src"] == "hz" and s["key"] == "state"]
+    if not st:
+        return None
+    before = [s for s in st if s["ts"] <= start]
+    cur = before[-1]["value"] if before else ""
+    t, total = start, 0
+    for s in st:
+        if s["ts"] <= start:
+            continue
+        if "feuererhaltung" in (cur or "").lower():
+            total += s["ts"] - t
+        t, cur = s["ts"], s["value"]
+    if "feuererhaltung" in (cur or "").lower():
+        total += max(0, end - t)
+    return total
+
+
 def _series(roles: dict[str, str], since: int, until: int) -> dict[str, dict]:
     """{rolle: {"unit", "points"}} fuer die zugeordneten Rollen mit Daten,
     dazu "innen" = Temperatur vom Infoscreen (DHT22)."""
