@@ -329,7 +329,7 @@ schon angelegten), Einheit (Standard „Stück“), Packungsgröße, Rhythmus **
   - **Sofort-Meldung** (auch unter der Woche), wenn die Reichweite unter **7 Tage** fällt – einmal pro
     Engpass; nach Kauf, Zählen, Bearbeiten oder Pausieren wieder scharf. 0 = aus.
   - Schwellen auf der Seite unter *Nachbestellen* änderbar.
-- **Bot:** `@bot therapy` (oder `@bot medikamente`) meldet alle Bestände, nach Person gruppiert. Die Frage
+- **Bot:** `@bot therapy` (oder `@bot medikamente`) meldet alle Bestände, nach Person gruppiert, mit Notiz (ab 0.10.1). Die Frage
   selbst geht wie jede Gruppennachricht an ntfy weiter (nur das Wort, keine Bestände), die Antwort nicht.
 - **Speicher:** eigene Datei `/var/lib/home-central/therapy.json` (0600). Sie ist **nicht** im
   Einstellungs-Export und nicht im Infoscreen-Spiegel; Sicherung über die Seite (*Sicherung herunterladen /

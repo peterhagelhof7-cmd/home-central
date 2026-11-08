@@ -300,13 +300,16 @@ def days_text(n: int) -> str:
     return "noch 1 Tag" if n == 1 else f"noch {n} Tage"
 
 
-def _grouped(items: list[tuple[dict, dict]]) -> list[str]:
+def _grouped(items: list[tuple[dict, dict]], notes: bool = False) -> list[str]:
     out, persons = [], sorted({m.get("person", "") for m, _ in items}, key=lambda p: (p == "", p.lower()))
     for p in persons:
         sub = [(m, s) for m, s in items if m.get("person", "") == p]
         if len(persons) > 1 or p:
             out.append(f"{p or 'ohne Person'}:")
-        out += [_line(m, s) for m, s in sorted(sub, key=lambda x: x[0]["name"].lower())]
+        for m, s in sorted(sub, key=lambda x: x[0]["name"].lower()):
+            out.append(_line(m, s))
+            if notes and m.get("notiz"):
+                out.append(f"   \U0001F4DD {m['notiz']}")
     return out
 
 
@@ -325,7 +328,7 @@ def bot_text(today: date | None = None) -> str:
     items = [(m, status(m, today, lim)) for m in meds()]
     if not items:
         return "\U0001F48A Keine Medikamente angelegt (Weboberfläche → Medikamente)."
-    lines = ["\U0001F48A Medikamente – aktueller Bestand:"] + _grouped(items)
+    lines = ["\U0001F48A Medikamente – aktueller Bestand:"] + _grouped(items, notes=True)
     low = [m["name"] for m, s in items if s["low"]]
     if low:
         lines.append(f"⚠ Nachbestellen: {', '.join(low)}")
