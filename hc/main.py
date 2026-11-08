@@ -23,11 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, device, heizung, history, meshcore, net, ntfy, poller, telegram
+from . import config, device, heizung, history, meshcore, net, ntfy, poller, telegram, therapy
 from .sources import extra, kalender, muell, openmeteo, owm, simple
 from .tz import now
 
-__version__ = "0.9.5"
+__version__ = "0.10.0"
 HERE = os.path.dirname(__file__)
 log = logging.getLogger("hc")
 
@@ -392,6 +392,81 @@ async def meshcore_test(req: Request):
         except Exception as e:  # noqa: BLE001
             msg = f"Fehler: {type(e).__name__}: {e or 'Gateway nicht erreichbar'}"[:200]
     return RedirectResponse(f"/settings?msg={quote(msg)}#meshcore", status_code=303)
+
+
+# --- Medikamente (therapy) ---------------------------------------------------------
+def _th_back(msg: str = "", anchor: str = ""):
+    return RedirectResponse(f"/therapy?msg={quote(msg)}" + (f"#{anchor}" if anchor else ""), status_code=303)
+
+
+@app.get("/therapy", response_class=HTMLResponse)
+async def therapy_page(req: Request, msg: str = "", edit: str = ""):
+    if (r := need_login(req)):
+        return r
+    rows = therapy.overview()
+    return templates.TemplateResponse(req, "therapy.html", {
+        "msg": msg, "rows": rows, "lim": therapy.limits(), "wd": therapy.WEEKDAYS, "fmt": therapy.fmt_n,
+        "edit": next((m for m in rows if m["id"] == edit), None),
+        "persons": sorted({m.get("person", "") for m in rows if m.get("person")}, key=str.lower),
+        "tg_ok": telegram.configured(), "version": __version__})
+
+
+@app.post("/therapy/save")
+async def therapy_save(req: Request):
+    if (r := need_login(req)):
+        return r
+    form = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
+    try:
+        therapy.upsert(form)
+    except ValueError as e:
+        return _th_back(f"Nicht gespeichert: {e}", "neu")
+    log.info("Medikament gespeichert")   # keine Namen ins Log (Gesundheitsdaten)
+    return _th_back("Gespeichert")
+
+
+@app.post("/therapy/{mid}/{action}")
+async def therapy_action(req: Request, mid: str, action: str):
+    if (r := need_login(req)):
+        return r
+    form = await req.form()
+    try:
+        ok = {"kauf": lambda: therapy.bought(mid),
+              "zaehlen": lambda: therapy.counted(mid, form.get("bestand", "")),
+              "pause": lambda: therapy.toggle(mid),
+              "del": lambda: therapy.delete(mid)}[action]()
+    except KeyError:
+        return _th_back("Unbekannte Aktion")
+    except ValueError:
+        return _th_back("Bestand: Zahl in halben Schritten, z. B. 12 oder 12,5")
+    return _th_back({"kauf": "Packung gebucht", "zaehlen": "Bestand übernommen", "pause": "Geändert",
+                     "del": "Gelöscht"}[action] if ok else "Medikament nicht gefunden")
+
+
+@app.post("/therapy-limits")
+async def therapy_limits(req: Request):
+    if (r := need_login(req)):
+        return r
+    therapy.set_limits(dict(await req.form()))
+    return _th_back("Schwellen gespeichert", "schwellen")
+
+
+@app.get("/therapy-export.json")
+async def therapy_export(req: Request):
+    if (r := need_login(req)):
+        return r
+    return Response(therapy.export_json(), media_type="application/json",
+                    headers={"Content-Disposition": 'attachment; filename="home-central-therapy.json"'})
+
+
+@app.post("/therapy-import")
+async def therapy_import(req: Request, file: UploadFile = File(...)):
+    if (r := need_login(req)):
+        return r
+    try:
+        n = therapy.import_json((await file.read()).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as e:
+        return _th_back(f"Sicherung nicht eingespielt: {e}", "sicherung")
+    return _th_back(f"{n} Medikamente eingespielt", "sicherung")
 
 
 # --- Verlauf (Aufzeichnung fuer die Anfeuer-Empfehlung) ---------------------------

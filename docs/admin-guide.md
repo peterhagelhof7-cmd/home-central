@@ -309,6 +309,32 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
   „Kesseltemperatur“ → „Kessel“, „Empfohlene Holzmenge beim Nachlegen“ → „Holz nachlegen“), damit Name und
   Wert gleich groß stehen können (Infoscreen-Firmware ab 1.4.2); Bot und Weboberfläche zeigen weiter die vollen Namen.
 
+### 3.8 Medikamente (therapy, ab 0.10.0)
+
+Seite **Medikamente** (Startseite → 💊). Pro Medikament: Name, Person (für wen; Vorschläge aus den
+schon angelegten), Einheit (Standard „Stück“), Packungsgröße, Rhythmus **täglich** oder **wöchentlich**
+(mit Wochentag), Dosis pro Einnahmetag in halben Schritten (0,5 / 1 / 1,5 …), aktueller Bestand, Notiz.
+
+- **Der Bestand wird berechnet**, nicht täglich abgehakt: Rest = gezählter Bestand − Dosis × Einnahmetage
+  seit dem Zählen. Der eingegebene Bestand gilt **nach** der heutigen Einnahme, ebenso der angezeigte
+  Rest. „Reicht noch N Tage“ = voll gedeckte Tage ab morgen, „leer ab“ = erster Tag ohne volle Dosis.
+- **+1 Packung gekauft** zählt eine Packungsgröße dazu. **Gezählt** übernimmt den echten Bestand, wenn
+  Rechnung und Schachtel auseinanderlaufen. **Pausieren** friert den Rest ein, **Fortsetzen** zählt ab
+  heute weiter. Ändert man beim Bearbeiten Dosis oder Rhythmus, gilt ab heute neu gerechnet.
+- **Meldungen** (nur Telegram, weder ntfy noch Mesh – Gesundheitsdaten):
+  - **Sonntags 10 Uhr**, direkt nach der Kino-Vorschau, eine eigene Meldung „Medikament nachbestellen“
+    mit allen Medikamenten unter **30 % einer Packung oder unter 14 Tagen Reichweite** – nur wenn es
+    etwas nachzubestellen gibt. Läuft home-central sonntags erst nach 10 Uhr an, wird nicht nachgeholt
+    (wie beim Kino).
+  - **Sofort-Meldung** (auch unter der Woche), wenn die Reichweite unter **7 Tage** fällt – einmal pro
+    Engpass; nach Kauf, Zählen, Bearbeiten oder Pausieren wieder scharf. 0 = aus.
+  - Schwellen auf der Seite unter *Nachbestellen* änderbar.
+- **Bot:** `@bot therapy` (oder `@bot medikamente`) meldet alle Bestände, nach Person gruppiert. Die Frage
+  selbst geht wie jede Gruppennachricht an ntfy weiter (nur das Wort, keine Bestände), die Antwort nicht.
+- **Speicher:** eigene Datei `/var/lib/home-central/therapy.json` (0600). Sie ist **nicht** im
+  Einstellungs-Export und nicht im Infoscreen-Spiegel; Sicherung über die Seite (*Sicherung herunterladen /
+  einspielen*, Einspielen ersetzt alles) oder mit dem Datenverzeichnis. Namen erscheinen nicht im Log.
+
 ---
 
 ## 4. Infoscreen koppeln
@@ -339,6 +365,7 @@ Geräte holen den neuen Token automatisch. Im Infoscreen selbst: Datenquelle →
 | Neustart | `sudo systemctl restart home-central` |
 | Einstellungen | `/var/lib/home-central/config.json` |
 | Geheimnisse | `/var/lib/home-central/secrets.json` (Passwort-Hash, API-Token, Session-Schlüssel, Kopplungen) |
+| Medikamente | `/var/lib/home-central/therapy.json` (Gesundheitsdaten, siehe 3.8) |
 | Zeitserver | `chronyc tracking`, `chronyc clients` |
 | mDNS | `avahi-browse -rt _home-central._tcp` (Paket `avahi-utils`) |
 
@@ -399,6 +426,8 @@ Route). Kanal angehakt? Kanalnamen müssen exakt wie im Gateway heißen; ein umb
 - Keys, Token und Kopplungen liegen nur in `/var/lib/home-central` (0600, Benutzer `home-central`),
   nie im Repo.
 - Kein HTTPS: für das Heimnetz gedacht, nicht ins Internet freigeben.
+- Medikamente (3.8) sind Gesundheitsdaten: eigene Datei, nur Telegram-Meldungen, nicht an ntfy, Mesh
+  oder Infoscreen, nicht im Einstellungs-Export. Wer in der Telegram-Gruppe ist, sieht die Bestände.
 - ntfy-Weiterleitung: Wer den Kanalnamen kennt, kann lesen und schreiben (siehe 3.5).
 - MeshCore-Gateway: Der API-Schlüssel erlaubt das Lesen von Kanälen und Nachrichten und – nur wenn im
   Gateway freigegeben – das Senden in genau einen Kanal (max. 10 pro Stunde). Er steht in

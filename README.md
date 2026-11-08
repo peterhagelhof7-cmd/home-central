@@ -24,6 +24,10 @@ Kopplung, Betrieb, Fehlersuche).
   Holzmenge), bei Problemen des esp-p4d selbst (Absturz, WLAN, Temperatur, Speicher, COM1) oder wenn
   keine Daten mehr kommen; **Verlauf** aller Heizungs-, Innenraum- und Wetterwerte
   plus stündliche Vorhersage (Open-Meteo) als Grundlage einer späteren Anfeuer-Empfehlung (Admin-Guide 3.7)
+- **Medikamente (therapy)**: Medikamente je Person mit Packungsgröße, Dosis (täglich oder wöchentlich,
+  halbe erlaubt) und Bestand; der Rest wird ausgerechnet. Sonntags mit der Kino-Vorschau kommt
+  „Medikament nachbestellen“, bei knapper Reichweite sofort; `@bot therapy` zeigt alle Bestände.
+  Nur Telegram, nie ntfy/Mesh/Infoscreen (Admin-Guide 3.8)
 - **Weboberfläche** im Stil des Infoscreens mit Login: Übersicht (Quellen-Status, Infoscreen-Status,
   **Live-Slides** = Nachbau aller 13 Display-Slides mit den aktuellen Daten, Message Board) und alle Einstellungen; **Import** des Infoscreen-Exports (ohne WLAN/Gerätename)
 - **NTP-Server** (chrony) für das LAN, **mDNS-Ankündigung** (Avahi), damit der Infoscreen den Server

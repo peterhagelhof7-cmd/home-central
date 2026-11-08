@@ -1,5 +1,5 @@
 """Telegram-Bot (Port von telegram.c): Message Board, @-Kommandos, Warnungs-
-Pushes, 6-Uhr-Bericht, Sonntags-Kino, Download-Waechter, Infoscreen offline/online.
+Pushes, 6-Uhr-Bericht, Sonntags-Kino + Medikamente, Download-Waechter, Infoscreen offline/online.
 
 Auf dem Server per Long-Polling (getUpdates timeout=25) -> Antworten sofort.
 """
@@ -10,7 +10,7 @@ import time
 from collections import deque
 from datetime import date, datetime
 
-from . import config, device, heizchart, heizung, meshcore, net, ntfy, poller
+from . import config, device, heizchart, heizung, meshcore, net, ntfy, poller, therapy
 from .history import current_value as hz_current, effective_roles as hz_effective_roles, roles as hz_roles  # "history" = Chatverlauf
 from .sources import extra, kalender, simple
 from .tz import TZ, now, today_iso
@@ -384,6 +384,7 @@ async def send_help():
         f"• heizung verlauf [Stunden] – Temperatur-Diagramm (ohne Angabe {heizchart.DEFAULT_HOURS} h)\n"
         "• kino – aktuelles Kinoprogramm\n"
         "• kino preview – Programm ab nächster Woche\n"
+        "• therapy – Medikamenten-Bestände (auch: medikamente)\n"
         "• neu termin JJJJ-MM-TT Text – Termin anlegen")
 
 
@@ -395,6 +396,9 @@ async def handle_command(text: str):
     i = low.find("neu termin")
     if i >= 0:
         return await cmd_new_termin(text[i + len("neu termin"):])
+    if "therapy" in low or "medikament" in low:
+        # Gesundheitsdaten: nur Telegram, nicht an ntfy
+        return await send(therapy.bot_text(), fwd=False)
     if "kino" in low:
         return await send(extra.kino_text(poller.data("kino"), preview="kino preview" in low))
     if "vorhersage" in low:
@@ -636,6 +640,19 @@ async def _check_schedules():
     elif n.weekday() == 6 and n.hour >= KINO_SUNDAY_HOUR and _st["kino_day"] != today:
         _st["kino_day"] = today
         await send(extra.kino_text(poller.data("kino")))
+        txt = therapy.digest_text(today)
+        if txt:
+            await send(txt, fwd=False)   # nur Telegram
+    await _check_therapy_urgent(today)
+
+
+async def _check_therapy_urgent(today: date):
+    """Sofort-Meldung bei knapper Reichweite, einmal je Engpass (gemerkt in therapy.json)."""
+    if therapy.limits()["urgent"] <= 0:
+        return
+    for m, text in therapy.urgent_due(today):
+        if await send(text, fwd=False):
+            therapy.mark_urgent(m["id"], today)
 
 
 async def push_loop():

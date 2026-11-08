@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}home-central Medikamente{% endblock %}
+{% block body %}
+<div class="top">
+  <h1>Medikamente</h1>
+  <nav><a class="navbtn" href="/">&larr; &Uuml;bersicht</a><a class="navbtn" href="/settings">&#9881; Einstellungen</a></nav>
+</div>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+{% if not tg_ok %}<div class="msg">Telegram ist nicht eingerichtet &ndash; Nachbestell-Meldungen kommen erst, wenn der Bot läuft.</div>{% endif %}
+
+<div class="card">
+  <h2>Bestand</h2>
+  <div class="sub">berechnet aus dem gezählten Bestand und der Dosis &middot; heutige Einnahme ist schon abgezogen</div>
+  {% set ns = namespace(p=None) %}
+  {% for m in rows %}
+    {% if m.person != ns.p %}{% set ns.p = m.person %}<h3 class="th-person">{{ m.person or "ohne Person" }}</h3>{% endif %}
+    {% set st = m.st %}
+    <div class="th-med {{ 'paused' if not st.aktiv else 'urgent' if st.urgent else 'low' if st.low else 'ok' }}">
+      <div class="th-head">
+        <span><span class="dot {{ 'idle' if not st.aktiv else 'bad' if st.low else 'ok' }}"></span><b>{{ m.name }}</b></span>
+        <span class="st" style="margin:0">{{ m.dosis_txt }} &middot; Packung {{ m.packung }}</span>
+      </div>
+      {% if st.aktiv %}
+      <div>noch <b>{{ fmt(st.rest) }} {{ m.einheit }}</b> ({{ "%.0f"|format(st.pct) }} %) &middot; reicht noch <b>{{ st.days }} {{ 'Tag' if st.days == 1 else 'Tage' }}</b>,
+        leer ab {{ st.leer.strftime("%d.%m.%Y") }}
+        {% if st.low %}<div class="err" style="font-size:13px">&#9888; nachbestellen &ndash; {{ st.reason }}</div>{% endif %}</div>
+      {% else %}
+      <div>pausiert &middot; {{ fmt(st.rest) }} {{ m.einheit }}</div>
+      {% endif %}
+      {% if m.notiz %}<div class="st" style="margin-top:4px">{{ m.notiz }}</div>{% endif %}
+      <div class="th-actions">
+        <form method="post" action="/therapy/{{ m.id }}/kauf"><button type="submit">+1 Packung gekauft</button></form>
+        <form method="post" action="/therapy/{{ m.id }}/zaehlen" class="row">
+          <input type="text" name="bestand" inputmode="decimal" placeholder="gezählt" required>
+          <button type="submit" class="grey">übernehmen</button></form>
+        <a class="btn grey" href="/therapy?edit={{ m.id }}#neu">bearbeiten</a>
+        <form method="post" action="/therapy/{{ m.id }}/pause"><button type="submit" class="grey">{{ 'fortsetzen' if not st.aktiv else 'pausieren' }}</button></form>
+        <form method="post" action="/therapy/{{ m.id }}/del" onsubmit="return th_del(this)"><button type="submit" class="red">löschen</button></form>
+      </div>
+    </div>
+  {% else %}
+    <div class="st" style="margin-top:0">Noch keine Medikamente angelegt.</div>
+  {% endfor %}
+</div>
+
+<div class="card" id="neu">
+  {% set e = edit %}
+  <h2>{{ 'Bearbeiten: ' ~ e.name if e else 'Medikament anlegen' }}</h2>
+  <div class="sub">Der Bestand gilt ab heute (nach der heutigen Einnahme).</div>
+  <form method="post" action="/therapy/save">
+    {% if e %}<input type="hidden" name="id" value="{{ e.id }}">{% endif %}
+    <label>Name</label><input type="text" name="name" maxlength="60" required value="{{ e.name if e }}" placeholder="z. B. Ramipril 5 mg">
+    <label>Person</label><input type="text" name="person" maxlength="40" list="th-persons" value="{{ e.person if e }}" placeholder="für wen">
+    <datalist id="th-persons">{% for p in persons %}<option value="{{ p }}">{% endfor %}</datalist>
+    <label>Einheit</label><input type="text" name="einheit" maxlength="20" value="{{ e.einheit if e else 'Stück' }}" placeholder="Stück (gilt für 1 und mehrere)">
+    <label>Packungsgröße (Stück)</label><input type="number" name="packung" min="1" step="1" required value="{{ e.packung if e }}">
+    <label>Rhythmus</label>
+    <select name="rhythmus" id="th-rh">
+      <option value="taeglich" {{ 'selected' if not e or e.rhythmus != 'woechentlich' }}>täglich</option>
+      <option value="woechentlich" {{ 'selected' if e and e.rhythmus == 'woechentlich' }}>wöchentlich</option>
+    </select>
+    <div id="th-wd"><label>Wochentag</label>
+      <select name="wochentag">{% for w in wd %}<option value="{{ loop.index0 }}" {{ 'selected' if e and e.wochentag == loop.index0 }}>{{ w }}</option>{% endfor %}</select></div>
+    <label>Dosis pro Einnahmetag (Stück, halbe erlaubt: 0,5 / 1 / 1,5 …)</label>
+    <input type="text" name="dosis" inputmode="decimal" required value="{{ fmt(e.dosis) if e else '1' }}">
+    <label>Bestand jetzt (Stück)</label>
+    <input type="text" name="bestand" inputmode="decimal" required value="{{ fmt(e.st.rest) if e }}">
+    <label>Notiz (optional)</label><input type="text" name="notiz" maxlength="120" value="{{ e.notiz if e }}">
+    <button type="submit">{{ 'Speichern' if e else 'Anlegen' }}</button>
+    {% if e %}<a class="btn grey" href="/therapy">Abbrechen</a>{% endif %}
+  </form>
+</div>
+
+<div class="card" id="schwellen">
+  <h2>Nachbestellen</h2>
+  <div class="sub">Sonntags um 10 Uhr (mit der Kino-Vorschau) kommt eine eigene Meldung &bdquo;Medikament nachbestellen&ldquo; &ndash; nur an Telegram, nicht an ntfy oder ins Mesh</div>
+  <form method="post" action="/therapy-limits">
+    <label>Meldung, wenn der Rest unter ... % einer Packung liegt</label><input type="number" name="pct" min="1" max="90" value="{{ lim.pct }}">
+    <label>... oder die Reichweite unter ... Tagen liegt</label><input type="number" name="days" min="1" max="120" value="{{ lim.days }}">
+    <label>Sofort-Meldung (auch unter der Woche), wenn die Reichweite unter ... Tagen liegt (0 = aus)</label><input type="number" name="urgent" min="0" max="60" value="{{ lim.urgent }}">
+    <button type="submit">Speichern</button>
+  </form>
+  <div class="st">Bot: <code>@bot therapy</code> (oder <code>medikamente</code>) meldet alle Bestände.</div>
+</div>
+
+<div class="card" id="sicherung">
+  <h2>Sicherung</h2>
+  <div class="sub">Die Medikamente stehen in einer eigenen Datei, nicht im Einstellungs-Export</div>
+  <a class="btn grey" href="/therapy-export.json">Sicherung herunterladen</a>
+  <form method="post" action="/therapy-import" enctype="multipart/form-data" onsubmit="return confirm('Alle Medikamente durch die Sicherung ersetzen?')">
+    <input type="file" name="file" accept=".json,application/json" required style="margin-top:12px">
+    <button type="submit" class="grey">Sicherung einspielen (ersetzt alles)</button>
+  </form>
+</div>
+<div class="st" style="text-align:center">home-central {{ version }}</div>
+
+<style>
+.th-person{font-size:16px;margin:18px 0 6px;color:var(--link)}
+.th-med{border-left:4px solid var(--ok);padding:8px 0 8px 12px;margin:8px 0}
+.th-med.low{border-color:#e0a030}.th-med.urgent{border-color:var(--bad)}.th-med.paused{border-color:#667;opacity:.75}
+.th-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-bottom:4px}
+.th-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.th-actions form{margin:0}
+.th-actions button,.th-actions .btn{display:inline-block;width:auto;margin:0;padding:6px 12px;font-size:14px}
+.th-actions .row input{width:90px;padding:6px}
+</style>
+<script>
+(function(){
+  const rh = document.getElementById("th-rh"), wd = document.getElementById("th-wd");
+  const upd = () => { wd.style.display = rh.value === "woechentlich" ? "" : "none"; };
+  rh.addEventListener("change", upd); upd();
+})();
+function th_del(f){ return confirm("Medikament wirklich löschen?"); }
+</script>
+{% endblock %}
