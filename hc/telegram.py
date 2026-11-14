@@ -679,6 +679,17 @@ async def _check_heizung():
             else:
                 _warned.pop(("tg", kind), None)   # ohne Entwarnungstext: nur zuruecksetzen
                 _warned.pop(("ntfy", kind), None)
+    if config.get("hz_push_door") == "1":
+        since = heizung.door_alarm_since()
+        if since:   # jede Minute neu (Schluessel = Minute seit Alarmbeginn)
+            mins = int((time.time() - since) // 60)
+            await _warn("hz_door", str(mins - heizung.DOOR_ALARM_AFTER // 60),
+                        f"\U0001F6AA\U0001F525 Kesseltüre offen, ACHTUNG! (seit {mins} min)")
+        else:
+            await _clear("hz_door", "✅ Kesseltüre wieder zu.")
+    else:
+        _warned.pop(("tg", "hz_door"), None)
+        _warned.pop(("ntfy", "hz_door"), None)
     j = poller.data("heizung") or {}
     if config.get("hz_push_err") == "1":
         err = j.get("error")

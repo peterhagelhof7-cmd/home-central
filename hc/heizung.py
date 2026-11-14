@@ -174,7 +174,26 @@ def vital_line() -> str:
 # fire_since: seit wann Feuer (0 = keins); fire_known: Beginn gesehen (nicht erst
 # nach einem Neustart von home-central mitten im Heizen)
 # fire_events: abgeschlossene Heizphasen [(beginn, ende, beginn_bekannt)] fuer telegram
-_st = {"kessel_off_since": 0.0, "fire_since": 0.0, "fire_known": False, "state_seen": False}
+_st = {"kessel_off_since": 0.0, "fire_since": 0.0, "fire_known": False, "state_seen": False,
+       "door_since": 0.0, "door_shut": 0.0}
+
+# Kesseltuer: Zustand "Tür offen" laenger als DOOR_ALARM_AFTER -> Alarm jede Minute, bis die Tuer
+# DOOR_SHUT_STABLE lang zu ist. Kuerzer zu und wieder offen = Schalterprellen: der Zeitraum
+# laeuft weiter (Beginn bleibt, Alarm geht weiter).
+DOOR_ALARM_AFTER = 20 * 60
+DOOR_SHUT_STABLE = 2 * 60
+
+
+def is_door_open(state: str) -> bool:
+    s = (state or "").lower().replace("ue", "ü")
+    return "tür" in s and "offen" in s
+
+
+def door_alarm_since(now_ts: float | None = None) -> float:
+    """Beginn der offenen Tuer, wenn der Alarm laeuft (>= DOOR_ALARM_AFTER), sonst 0."""
+    now_ts = now_ts or time.time()
+    since = _st["door_since"]
+    return since if since and now_ts - since >= DOOR_ALARM_AFTER else 0.0
 fire_events: list[tuple[float, float, bool]] = []
 
 
@@ -196,6 +215,15 @@ def _track(j: dict, now_ts: float | None = None):
     if not j.get("online"):
         return
     state = str(j.get("state") or "")
+    if is_door_open(state):
+        if not _st["door_since"]:
+            _st["door_since"] = now_ts
+        _st["door_shut"] = 0.0
+    elif _st["door_since"]:
+        if not _st["door_shut"]:
+            _st["door_shut"] = now_ts
+        elif now_ts - _st["door_shut"] >= DOOR_SHUT_STABLE:
+            _st["door_since"] = _st["door_shut"] = 0.0
     if is_burning(state) and not _st["fire_since"]:
         _st["fire_since"] = now_ts
         _st["fire_known"] = _st["state_seen"]   # erster Abruf nach Start: Beginn unbekannt

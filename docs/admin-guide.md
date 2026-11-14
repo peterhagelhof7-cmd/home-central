@@ -284,6 +284,13 @@ Service-Schnittstelle COM1 aus. home-central holt sich davon Zustand, Störung u
     ohne gespeicherte Zuordnung gilt der Vorschlag), kommt einmal „Zeit zum Anheizen“. Erneut erst,
     nachdem der Puffer mindestens 3 K über dem Soll lag. Keine Meldung, solange der Kessel „Anheizen“/
     „Heizen“ meldet oder das Soll 0 ist (Heizkreis aus). Werte aus der 5-min-Aufzeichnung.
+  - **Kesseltüre offen** (ab 0.12.0): Meldet der Kessel länger als **20 min** den Zustand „Tür offen“,
+    kommt **jede Minute** „🚪🔥 Kesseltüre offen, ACHTUNG! (seit N min)“ an Telegram und ntfy (dort nur,
+    wenn „Warnungen“ an ist; nicht ins Mesh). Die Wiederholung endet erst, wenn die Tür **2 min am Stück**
+    zu ist. Dann kommt einmal „✅ Kesseltüre wieder zu.“ War sie nur kurz zu und dann wieder offen
+    (Schalterprellen), läuft alles weiter, auch die 20 min vor dem ersten Alarm zählen ab dem ersten Öffnen.
+    Der Zustand wird alle 30 s abgefragt. Ist der Kessel bzw. das esp-p4d nicht erreichbar, bleibt der letzte
+    bekannte Stand bestehen, ein laufender Alarm wiederholt sich also weiter (dazu kommt die Meldung „ohne Daten“).
   - **Zustand des esp-p4d** (ab 0.9.0, esp-p4d-Firmware ab 0.3.0; Abruf von `/api/v1/status` jede
     Minute): Neustart nach Absturz, Watchdog oder Spannungseinbruch (normale Neustarts wie Update
     oder Strom an nicht); WLAN-Signal länger als 10 min unter −80 dBm (Entwarnung ab −75 dBm); Chip
