@@ -10,7 +10,7 @@ Kopplung, Betrieb, Fehlersuche).
 - **Datenquellen** (Intervalle wie bisher im ESP): OpenWeatherMap, Spessartwetter, DWD (Bright Sky),
   BBK/NINA, Bitstamp-Kurse, Fritzbox (UPnP), Müllabfuhr (MyMüll **oder** AWIDO), Kino,
   Flugzeuge (adsb.lol + adsbdb), Satelliten/Asteroiden (N2YO + NASA), Feiertage, eigene Termine
-- **Telegram-Bot** komplett (Message Board, @-Kommandos, Warnungen, 6-Uhr-Bericht, Sonntags-Kino,
+- **Telegram-Bot** komplett (Message Board, @-Kommandos, Warnungen, 6-Uhr-Bericht mit Heizung, Wochenliste, Müll-Erinnerung am Vorabend, Sonntags-Kino,
   Download-Wächter, Meldung wenn der Infoscreen offline geht)
 - **Weiterleitung an ntfy** (ntfy.sh): Gruppennachrichten und Warnungen für Familienmitglieder ohne
   Telegram – reine Empfangs-App ohne Konto/Chat (Admin-Guide 3.5)

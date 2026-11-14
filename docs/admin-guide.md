@@ -166,7 +166,7 @@ nur empfangen, nicht in die Gruppe schreiben.
 | Häkchen | Inhalt | Darstellung in ntfy |
 |---|---|---|
 | Gruppennachrichten | jede Textnachricht aus der Telegram-Gruppe (auch Fragen an den Bot), außerdem Nachrichten, die über das Message Board (home-central oder Infoscreen) in die Gruppe gehen | Titel = Vorname des Absenders bzw. „Message Board“/„Infoscreen“ |
-| Antworten und Berichte des Bots | Antworten auf Befehle (`@<botname> wetter` …), 6-Uhr-Bericht mit Terminen, Sonntags-Kino | Titel = Bot-Name |
+| Antworten und Berichte des Bots | Antworten auf Befehle (`@<botname> wetter` …), 6-Uhr-Bericht mit Terminen, Wochenliste (sonntags), Müll-Erinnerung (17 Uhr), Sonntags-Kino | Titel = Bot-Name |
 | Warnungen | DWD-Wetterwarnung, NINA/BBK-Warnung, Windböen ≥ 50 km/h – jede Warnung einmal | Titel „Warnung“, hohe Priorität |
 
 **Nicht** weitergeleitet: Slash-Befehle (`/start` …) und technische Meldungen (home-central gestartet,
@@ -342,6 +342,20 @@ schon angelegten), Einheit (Standard „Stück“), Packungsgröße, Rhythmus **
 - **Speicher:** eigene Datei `/var/lib/home-central/therapy.json` (0600). Sie ist **nicht** im
   Einstellungs-Export und nicht im Infoscreen-Spiegel; Sicherung über die Seite (*Sicherung herunterladen /
   einspielen*, Einspielen ersetzt alles) oder mit dem Datenverzeichnis. Namen erscheinen nicht im Log.
+
+### 3.9 Feste Meldungen des Bots (Zeitplan)
+
+| Wann | Meldung |
+|---|---|
+| täglich 6 Uhr | **Tagesübersicht:** Wetter jetzt/heute mit Hinweisen (Glätte, Regen, Sturm …), DWD-Warnung, ab 0.12.0 **Heizungsstand** (Modus/Zustand, Störung, Puffer oben/mitte/unten mit berechnetem Ladezustand) und **Außentemperatur vom Kesselfühler**, nächster Feiertag. Danach die nächsten 5 Termine (eigene, Müll, Feiertage) mit Wochentag, z. B. „Montag 16.11. Abfuhr: Biomüll“. |
+| sonntags 6 Uhr | zusätzlich **alle Termine der kommenden Woche** (Montag bis Sonntag) |
+| sonntags 10 Uhr | Kino-Vorschau, danach ggf. Medikamente (3.8) |
+| täglich 17 Uhr | ab 0.12.0 **Müll-Erinnerung** am Vorabend jeder Abfuhr: „🗑 Morgen Biomüll – bitte rausstellen!“ (mehrere Tonnen in einer Meldung) |
+
+Heizungszeilen gibt es nur, wenn die Heizung eingerichtet ist (3.7); fehlen Daten seit über 10 min,
+steht dort der Grund. Puffer und Außentemperatur kommen über die Rollen der Seite *Heizung*.
+Startet home-central erst nach dem jeweiligen Zeitpunkt (Update, Neustart), wird die Meldung an diesem
+Tag nicht nachgeholt. Tagesübersicht, Wochenliste und Müll-Erinnerung gehen auch an ntfy (3.5).
 
 ---
 

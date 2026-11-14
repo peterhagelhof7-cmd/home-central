@@ -1,5 +1,6 @@
 """Telegram-Bot (Port von telegram.c): Message Board, @-Kommandos, Warnungs-
-Pushes, 6-Uhr-Bericht, Sonntags-Kino + Medikamente, Download-Waechter, Infoscreen offline/online.
+Pushes, 6-Uhr-Bericht (+ Heizung, sonntags Wochenliste), 17-Uhr-Muell-Erinnerung,
+Sonntags-Kino + Medikamente, Download-Waechter, Infoscreen offline/online.
 
 Auf dem Server per Long-Polling (getUpdates timeout=25) -> Antworten sofort.
 """
@@ -8,7 +9,7 @@ import logging
 import re
 import time
 from collections import deque
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from . import config, device, heizchart, heizung, meshcore, net, ntfy, poller, therapy
 from .history import current_value as hz_current, effective_roles as hz_effective_roles, roles as hz_roles  # "history" = Chatverlauf
@@ -22,6 +23,7 @@ TG_MAX_MSGS = 16
 TG_TERMINE = 5
 SUMMARY_HOUR = 6
 KINO_SUNDAY_HOUR = 10
+MUELL_EVE_HOUR = 17
 BOE_WARN_KMH = 50.0
 FIRE_FAIL_SEC = 30 * 60   # kuerzere Heizphase = "Anheizen fehlgeschlagen" statt "Feuer aus"
 FIRE_FAIL_FULL_PCT = 60     # ab diesem eigenen Pufferladezustand: "Puffer war schon voll" statt "fehlgeschlagen"
@@ -32,7 +34,7 @@ HW_HITZE_C, HW_NACHTFROST_C, HW_REGEN_AB_MM = 30, 0, 1.0
 history: deque = deque(maxlen=TG_MAX_MSGS)
 version = 0
 _st = {"botname": "", "offset": 0, "primed": False, "greeted": False,
-       "summary_day": None, "kino_day": None, "dev_online": None}
+       "summary_day": None, "kino_day": None, "muell_day": None, "dev_online": None}
 # Zuletzt gemeldete Warnung je Kanal ("tg"/"ntfy") und Art ("dwd"/"nina"/"boe")
 _warned: dict[tuple[str, str], str] = {}
 
@@ -112,12 +114,41 @@ def termine_merged() -> list[tuple[str, str]]:
     return sorted(ev, key=lambda e: e[0])
 
 
+WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+
+def _termin_line(d: str, lbl: str) -> str:
+    """'Montag 17.11. Abfuhr: Biomüll'"""
+    return f"{WOCHENTAGE[date.fromisoformat(d).weekday()]} {d[8:10]}.{d[5:7]}. {lbl}"
+
+
 def build_termine(maxn: int = TG_TERMINE) -> str:
     ev = termine_merged()
     if not ev:
         return "\U0001F4C5 Keine Termine."
-    return "\U0001F4C5 Nächste Termine:" + "".join(
-        f"\n{d[8:10]}.{d[5:7]}. {lbl}" for d, lbl in ev[:maxn])
+    return "\U0001F4C5 Nächste Termine:" + "".join(f"\n{_termin_line(d, lbl)}" for d, lbl in ev[:maxn])
+
+
+def build_woche(today: date) -> str:
+    """Alle Termine der kommenden Woche (Montag bis Sonntag nach 'today')."""
+    mo = today + timedelta(days=7 - today.weekday())
+    so = mo + timedelta(days=6)
+    ev = [(d, lbl) for d, lbl in termine_merged() if mo.isoformat() <= d <= so.isoformat()]
+    head = f"\U0001F5D3 Kommende Woche ({mo:%d.%m.}–{so:%d.%m.}):"
+    if not ev:
+        return head + "\nkeine Termine"
+    return head + "".join(f"\n{_termin_line(d, lbl)}" for d, lbl in ev)
+
+
+def muell_morgen_text(today: date) -> str | None:
+    """Erinnerung am Vorabend: 'Morgen Biomüll und Papier – bitte rausstellen'."""
+    morgen = (today + timedelta(days=1)).isoformat()
+    titles = [m["title"] for m in (poller.data("muell") or {}).get("entries", [])
+              if m.get("day") == morgen and m.get("title")]
+    if not titles:
+        return None
+    was = titles[0] if len(titles) == 1 else ", ".join(titles[:-1]) + " und " + titles[-1]
+    return f"\U0001F5D1 Morgen {was} – bitte rausstellen!"
 
 
 def _days_until(d: str) -> int:
@@ -184,6 +215,42 @@ async def _owm_fresh() -> dict:
     return p.data or {}
 
 
+def _fmt_c(v: float) -> str:
+    return f"{v:.1f}".replace(".", ",") + " °C"
+
+
+def heizung_morgen_lines() -> list[str]:
+    """Heizungsstand + Außentemperatur (Kesselfühler) für den 6-Uhr-Bericht."""
+    if not heizung.enabled():
+        return []
+    j = poller.data("heizung") or {}
+    reason = heizung.offline_reason()
+    if not j or reason:
+        return [f"\U0001F525 Heizung: keine aktuellen Daten ({reason or 'noch nichts empfangen'})"]
+    roles = hz_effective_roles()
+    by_key = {v.get("k"): v.get("v") for v in j.get("values") or []}
+
+    def val(rid):   # Verlauf (alle Werte, 5 min) oder Auswahl der Zusammenfassung (30 s)
+        v = hz_current(rid, roles)
+        if v is None:
+            v = by_key.get(roles.get(rid))
+        return v if isinstance(v, (int, float)) else None
+
+    state = " / ".join(x for x in (j.get("mode"), j.get("state")) if x)
+    out = ["\U0001F525 Heizung: " + (state or "Zustand unbekannt")
+           + ("" if j.get("online") else " (Kessel antwortet nicht)")]
+    if j.get("error"):
+        out.append(f"\U0001F6A8 Störung: {j['error']}")
+    temps = [val(r) for r in ("puffer_oben", "puffer_mitte", "puffer_unten")]
+    if all(t is not None for t in temps):
+        charge = heizung.buffer_charge(temps)
+        out.append("Puffer oben/mitte/unten: " + " / ".join(f"{t:.0f}" for t in temps) + " °C"
+                   + (f" · {charge} % geladen" if charge is not None else ""))
+    if (a := val("aussen")) is not None:
+        out.append(f"\U0001F321 Außen (Kessel): {_fmt_c(a)}")
+    return out
+
+
 async def send_daily_summary():
     d = await _owm_fresh()
     msg = ["☀️ Guten Morgen! Deine Tagesübersicht"]
@@ -199,11 +266,15 @@ async def send_daily_summary():
     if dw.get("valid") and dw.get("count", 0) > 0:
         msg.append(f"⚠️ DWD: {dw['headline'] or 'Warnung aktiv'}"
                    + (f" (+{dw['count'] - 1} weitere)" if dw["count"] > 1 else ""))
+    msg += heizung_morgen_lines()
     fl = next_feiertag_line()
     if fl:
         msg.append(fl)
     await send("\n".join(msg))
     await send(build_termine())
+    today = now().date()
+    if today.weekday() == 6:   # sonntags zusätzlich die ganze kommende Woche
+        await send(build_woche(today))
 
 
 # --- Kommandos ----------------------------------------------------------------
@@ -670,6 +741,14 @@ async def _check_schedules():
         txt = therapy.digest_text(today)
         if txt:
             await send(txt, fwd=False)   # nur Telegram
+    # Müll-Erinnerung am Vorabend um 17 Uhr; kein Nachholen nach späterem Start (wie oben)
+    if _st["muell_day"] is None:
+        _st["muell_day"] = today if n.hour >= MUELL_EVE_HOUR else False
+    elif n.hour >= MUELL_EVE_HOUR and _st["muell_day"] != today:
+        _st["muell_day"] = today
+        txt = muell_morgen_text(today)
+        if txt:
+            await send(txt)
     await _check_therapy_urgent(today)
 
 
